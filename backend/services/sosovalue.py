@@ -69,5 +69,18 @@ class SoSoValueClient:
     async def get_fundraising(self) -> Any:
         return await self._get("/fundraising/recent")
 
+    async def get_etf_history(self, etf_id: str, days: int = 7) -> Any:
+        return await self._get("/etf/market/history", params={"etfId": etf_id, "days": days})
+
     async def get_prices(self, symbols: list[str]) -> Any:
         return await self._get("/currency/market", params={"symbols": ",".join(symbols)})
+
+
+_client: "SoSoValueClient | None" = None
+
+
+def get_client() -> "SoSoValueClient":
+    global _client
+    if _client is None:
+        _client = SoSoValueClient()
+    return _client
