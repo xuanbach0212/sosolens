@@ -1,4 +1,4 @@
-import { NewsHeadline } from "@/data/dummy";
+import type { NewsHeadline } from "@/types";
 
 interface Props {
   briefing: string[];

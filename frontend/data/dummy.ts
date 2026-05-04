@@ -1,97 +1,19 @@
-export type SignalType = 'BUY' | 'WATCH' | 'AVOID';
-export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';
-
-export interface DataSourceRow {
-  name: string;
-  value: string;
-  signal: '🟢' | '🟡' | '🔴' | '⚪';
-  arrow?: string;
-}
-
-export interface Token {
-  symbol: string;
-  price: string;
-  change: string;
-  positive: boolean;
-}
-
-export interface PastSignal {
-  date: string;
-  label: string;
-  result: string;
-  success: boolean;
-}
-
-export interface Signal {
-  id: string;
-  type: SignalType;
-  sector: string;
-  confidence: number;
-  risk: RiskLevel;
-  timeAgo: string;
-  explanation: string;
-  dataSources: DataSourceRow[];
-  topTokens: Token[];
-  pastSignals: PastSignal[];
-  accuracy: number;
-  sodexPair: string;
-  sodexSlippage: string;
-  sodexEstOutput: string;
-}
-
-export interface MarketStatus {
-  sentiment: string;
-  sentimentPositive: boolean;
-  btcPrice: string;
-  btcChange: string;
-  ethPrice: string;
-  ethChange: string;
-  mcap: string;
-  mcapChange: string;
-  vol: string;
-  volChange: string;
-  fearGreed: number;
-  fearGreedLabel: string;
-}
-
-export interface SectorFlow {
-  name: string;
-  change: number;
-}
-
-export interface EtfFlow {
-  name: string;
-  flow: string;
-  arrows: string;
-  positive: boolean;
-  total?: boolean;
-}
-
-export interface MacroItem {
-  name: string;
-  value: string;
-  arrow: string;
-  warning?: boolean;
-}
-
-export interface BtcTreasury {
-  company: string;
-  btcHeld: string;
-  weeklyChange: string;
-  positive: boolean | null;
-}
-
-export interface VcActivity {
-  sector: string;
-  rounds: number;
-  totalUsd: string;
-}
-
-export interface NewsHeadline {
-  text: string;
-  source: string;
-  macroSensitive?: boolean;
-}
+import type {
+  SignalType,
+  RiskLevel,
+  DataSourceRow,
+  Token,
+  PastSignal,
+  Signal,
+  SignalStats,
+  MarketStatus,
+  SectorFlow,
+  EtfFlow,
+  MacroItem,
+  BtcTreasury,
+  VcActivity,
+  NewsHeadline,
+} from '@/types';
 
 export const signals: Signal[] = [
   {
@@ -265,7 +187,7 @@ export const signals: Signal[] = [
   },
 ];
 
-export const signalStats = { today: 3, thisWeek: 14, accuracy: 71 };
+export const signalStats: SignalStats = { today: 3, thisWeek: 14, accuracy: 71 };
 
 export const marketStatus: MarketStatus = {
   sentiment: 'RISK-ON',
