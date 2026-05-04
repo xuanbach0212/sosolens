@@ -17,6 +17,7 @@ from backend.agent.db import init_db, get_db
 from backend.agent.models import Signal
 from backend.agent.runner import run_agent, start_scheduler
 from backend.services.etf import fetch_etf_snapshot
+from backend.services.sector import fetch_sector_flows
 from backend.services.sosovalue import get_client
 
 
@@ -54,8 +55,12 @@ def get_market() -> dict:
 
 
 @app.get("/api/sector-flows")
-def get_sector_flows() -> dict:
-    return {"sectorFlows": SECTOR_FLOWS}
+async def get_sector_flows() -> dict:
+    try:
+        data = await fetch_sector_flows(get_client())
+        return {"sectorFlows": data}
+    except Exception:
+        return {"sectorFlows": SECTOR_FLOWS}
 
 
 @app.get("/api/etf-flows")
