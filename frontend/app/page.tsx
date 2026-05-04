@@ -6,22 +6,36 @@ import SignalFeed from "@/components/SignalFeed";
 import SignalDetail from "@/components/SignalDetail";
 import MarketIntelligence from "@/components/MarketIntelligence";
 import BottomBar from "@/components/BottomBar";
-import {
-  signals,
-  signalStats,
-  marketStatus,
-  sectorFlows,
-  etfFlows,
-  macroStatus,
-  btcTreasuries,
-  vcActivity,
-  aiBriefing,
-  newsHeadlines,
-} from "@/data/dummy";
+import { useDashboardData } from "@/hooks/useDashboardData";
 
 export default function Page() {
-  const [selectedId, setSelectedId] = useState(signals[0].id);
-  const selectedSignal = signals.find((s) => s.id === selectedId) ?? signals[0];
+  const {
+    signals,
+    stats,
+    market,
+    sectorFlows,
+    etfFlows,
+    macroStatus,
+    btcTreasuries,
+    vcActivity,
+    aiBriefing,
+    newsHeadlines,
+    isLoading,
+    isError,
+    lastUpdated,
+  } = useDashboardData();
+
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const effectiveId = selectedId ?? signals[0]?.id ?? null;
+  const selectedSignal = signals.find((s) => s.id === effectiveId) ?? signals[0];
+
+  if (!selectedSignal) {
+    return (
+      <div className="h-screen flex items-center justify-center text-terminal-muted text-xs tracking-widest">
+        LOADING...
+      </div>
+    );
+  }
 
   return (
     <div
@@ -31,12 +45,12 @@ export default function Page() {
         gridTemplateColumns: "220px 1fr 260px",
       }}
     >
-      <TopBar market={marketStatus} />
+      <TopBar market={market} isLoading={isLoading} isError={isError} lastUpdated={lastUpdated} />
       <SignalFeed
         signals={signals}
-        selectedId={selectedId}
+        selectedId={effectiveId ?? signals[0].id}
         onSelect={setSelectedId}
-        stats={signalStats}
+        stats={stats}
       />
       <SignalDetail signal={selectedSignal} />
       <MarketIntelligence

@@ -1,10 +1,21 @@
-import { MarketStatus } from "@/data/dummy";
+import type { MarketStatus } from "@/types";
 
 interface Props {
   market: MarketStatus;
+  isLoading: boolean;
+  isError: boolean;
+  lastUpdated: Date | null;
 }
 
-export default function TopBar({ market }: Props) {
+export default function TopBar({ market, isLoading, isError, lastUpdated }: Props) {
+  const statusLabel = isError
+    ? <span className="text-terminal-red">DATA: ERROR · USING CACHE</span>
+    : isLoading
+    ? <span className="text-terminal-yellow">DATA: REFRESHING...</span>
+    : lastUpdated
+    ? `DATA: LIVE · ${lastUpdated.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })} UTC`
+    : 'DATA: SOSOVALUE API';
+
   return (
     <div
       className="border-b border-terminal-border bg-terminal-panel px-3 flex flex-col justify-center"
@@ -49,7 +60,7 @@ export default function TopBar({ market }: Props) {
           </span>
         </span>
         <span className="ml-auto text-terminal-muted text-[10px]">
-          DATA: SOSOVALUE API · MOCKUP
+          {statusLabel}
         </span>
       </div>
     </div>

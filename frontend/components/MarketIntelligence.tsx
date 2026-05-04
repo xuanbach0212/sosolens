@@ -1,10 +1,4 @@
-import {
-  SectorFlow,
-  EtfFlow,
-  MacroItem,
-  BtcTreasury,
-  VcActivity,
-} from "@/data/dummy";
+import type { SectorFlow, EtfFlow, MacroItem, BtcTreasury, VcActivity } from "@/types";
 
 interface Props {
   sectorFlows: SectorFlow[];

@@ -1,4 +1,4 @@
-import { Signal, SignalType } from "@/data/dummy";
+import type { Signal, SignalType } from "@/types";
 
 const TYPE_COLOR: Record<SignalType, string> = {
   BUY: "text-terminal-green",
