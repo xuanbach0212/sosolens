@@ -17,6 +17,7 @@ from backend.agent.db import init_db, get_db
 from backend.agent.models import Signal
 from backend.agent.runner import run_agent, start_scheduler
 from backend.services.etf import fetch_etf_snapshot
+from backend.services.macro import fetch_macro_indicators
 from backend.services.sector import fetch_sector_flows
 from backend.services.sosovalue import get_client
 
@@ -73,8 +74,12 @@ async def get_etf_flows() -> dict:
 
 
 @app.get("/api/macro")
-def get_macro() -> dict:
-    return {"macroStatus": MACRO_STATUS}
+async def get_macro() -> dict:
+    try:
+        data = await fetch_macro_indicators(get_client())
+        return {"macroStatus": data}
+    except Exception:
+        return {"macroStatus": MACRO_STATUS}
 
 
 @app.get("/api/btc-treasuries")
