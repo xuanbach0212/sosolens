@@ -16,6 +16,8 @@ from backend.data.hardcoded import (
 from backend.agent.db import init_db, get_db
 from backend.agent.models import Signal
 from backend.agent.runner import run_agent, start_scheduler
+from backend.services.etf import fetch_etf_snapshot
+from backend.services.sosovalue import get_client
 
 
 @asynccontextmanager
@@ -57,8 +59,12 @@ def get_sector_flows() -> dict:
 
 
 @app.get("/api/etf-flows")
-def get_etf_flows() -> dict:
-    return {"etfFlows": ETF_FLOWS}
+async def get_etf_flows() -> dict:
+    try:
+        data = await fetch_etf_snapshot(get_client())
+        return {"etfFlows": data}
+    except Exception:
+        return {"etfFlows": ETF_FLOWS}
 
 
 @app.get("/api/macro")
