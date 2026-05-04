@@ -1,0 +1,73 @@
+import asyncio
+import time
+import os
+from typing import Any
+
+import httpx
+
+SOSOVALUE_BASE = "https://openapi.sosovalue.com/openapi/v1"
+MIN_INTERVAL_SECS = 3.0  # 20 req/min = 1 call per 3s
+
+
+class SoSoValueClient:
+    """
+    Async HTTP client for the SoSoValue Data API.
+    Auth: x-soso-api-key header (free tier: 20 req/min, 100K req/month).
+    Rate limiting: enforces 3-second minimum between calls.
+    Retry: 3 attempts with exponential backoff on 429/5xx.
+    """
+
+    def __init__(self, api_key: str | None = None):
+        self._api_key = api_key or os.environ["SOSOVALUE_API_KEY"]
+        self._client = httpx.AsyncClient(
+            base_url=SOSOVALUE_BASE,
+            headers={"x-soso-api-key": self._api_key},
+            timeout=10.0,
+        )
+        self._last_call_at: float = 0.0
+
+    async def _get(self, path: str, params: dict | None = None) -> Any:
+        elapsed = time.monotonic() - self._last_call_at
+        if elapsed < MIN_INTERVAL_SECS:
+            await asyncio.sleep(MIN_INTERVAL_SECS - elapsed)
+
+        for attempt in range(3):
+            self._last_call_at = time.monotonic()
+            try:
+                r = await self._client.get(path, params=params)
+                if r.status_code == 429:
+                    await asyncio.sleep(60)
+                    continue
+                r.raise_for_status()
+                return r.json()
+            except httpx.HTTPStatusError:
+                if attempt == 2:
+                    raise
+                await asyncio.sleep(2 ** attempt)
+
+        raise RuntimeError(f"Failed after 3 attempts: {path}")
+
+    async def close(self) -> None:
+        await self._client.aclose()
+
+    async def get_etf_flows(self) -> Any:
+        return await self._get("/etf/market/snapshot")
+
+    async def get_sector_flows(self) -> Any:
+        return await self._get("/index/sectorCapitalFlow")
+
+    async def get_btc_treasuries(self) -> Any:
+        return await self._get("/btcTreasuries/corporateHoldings")
+
+    async def get_macro(self) -> Any:
+        return await self._get("/macro/indicators")
+
+    async def get_news(self, currency: str | None = None) -> Any:
+        params = {"currency": currency} if currency else None
+        return await self._get("/feeds/hotNews", params=params)
+
+    async def get_fundraising(self) -> Any:
+        return await self._get("/fundraising/recent")
+
+    async def get_prices(self, symbols: list[str]) -> Any:
+        return await self._get("/currency/market", params={"symbols": ",".join(symbols)})

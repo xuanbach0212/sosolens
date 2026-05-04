@@ -11,13 +11,26 @@ out/
 
 # Foundry
 cache/
-out/
 broadcast/
 
 # Hardhat
 artifacts/
-cache/
 typechain-types/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+.venv/
+*.egg-info/
+.pytest_cache/
+
+# Database
+*.db
+*.sqlite
 
 # Environment
 .env
