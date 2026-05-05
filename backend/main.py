@@ -19,10 +19,7 @@ from backend.data.hardcoded import (
 from backend.agent.db import init_db, get_db
 from backend.agent.models import Signal
 from backend.agent.runner import run_agent, start_scheduler
-from backend.services.etf import fetch_etf_snapshot
-from backend.services.macro import fetch_macro_indicators
-from backend.services.sector import fetch_sector_flows
-from backend.services.sosovalue import get_client
+import backend.cache as cache
 
 
 @asynccontextmanager
@@ -59,30 +56,18 @@ def get_market() -> dict:
 
 
 @app.get("/api/sector-flows")
-async def get_sector_flows() -> dict:
-    try:
-        data = await fetch_sector_flows(get_client())
-        return {"sectorFlows": data}
-    except Exception:
-        return {"sectorFlows": SECTOR_FLOWS}
+def get_sector_flows() -> dict:
+    return {"sectorFlows": cache.get("sector_flows") or SECTOR_FLOWS}
 
 
 @app.get("/api/etf-flows")
-async def get_etf_flows() -> dict:
-    try:
-        data = await fetch_etf_snapshot(get_client())
-        return {"etfFlows": data}
-    except Exception:
-        return {"etfFlows": ETF_FLOWS}
+def get_etf_flows() -> dict:
+    return {"etfFlows": cache.get("etf_flows") or ETF_FLOWS}
 
 
 @app.get("/api/macro")
-async def get_macro() -> dict:
-    try:
-        data = await fetch_macro_indicators(get_client())
-        return {"macroStatus": data}
-    except Exception:
-        return {"macroStatus": MACRO_STATUS}
+def get_macro() -> dict:
+    return {"macroStatus": cache.get("macro_status") or MACRO_STATUS}
 
 
 @app.get("/api/btc-treasuries")
@@ -102,6 +87,6 @@ def get_news() -> dict:
 
 @app.post("/api/agent/run")
 async def trigger_agent_run() -> dict:
-    """Debug endpoint — manually trigger the agent loop."""
+    """Manually trigger the agent loop (runs detectors + refreshes panel cache)."""
     await run_agent()
     return {"status": "ok"}
