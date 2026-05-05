@@ -52,7 +52,7 @@ def get_signals() -> dict:
 
 @app.get("/api/market")
 def get_market() -> dict:
-    return {"market": MARKET_STATUS}
+    return {"market": cache.get("market_status") or MARKET_STATUS}
 
 
 @app.get("/api/sector-flows")
@@ -72,16 +72,19 @@ def get_macro() -> dict:
 
 @app.get("/api/btc-treasuries")
 def get_btc_treasuries() -> dict:
-    return {"btcTreasuries": BTC_TREASURIES}
+    return {"btcTreasuries": cache.get("btc_treasuries") or BTC_TREASURIES}
 
 
 @app.get("/api/vc-activity")
 def get_vc_activity() -> dict:
-    return {"vcActivity": VC_ACTIVITY}
+    return {"vcActivity": cache.get("vc_activity") or VC_ACTIVITY}
 
 
 @app.get("/api/news")
 def get_news() -> dict:
+    cached = cache.get("news")
+    if cached:
+        return {"aiBriefing": cached.get("briefing", []), "newsHeadlines": cached.get("headlines", [])}
     return {"aiBriefing": AI_BRIEFING, "newsHeadlines": NEWS_HEADLINES}
 
 

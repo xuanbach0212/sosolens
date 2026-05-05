@@ -16,6 +16,9 @@ async def _refresh_panel_cache() -> None:
     from backend.services.etf import fetch_etf_snapshot
     from backend.services.sector import fetch_sector_flows
     from backend.services.macro import fetch_macro_indicators
+    from backend.services.btc_treasuries import fetch_btc_treasuries
+    from backend.services.news import fetch_news_headlines, fetch_fundraising
+    from backend.services.currency import fetch_market_status
     client = get_client()
     try:
         cache.set("etf_flows", await fetch_etf_snapshot(client))
@@ -32,6 +35,27 @@ async def _refresh_panel_cache() -> None:
         logger.info("[agent] cache: macro_status updated")
     except Exception as exc:
         logger.warning("[agent] cache: macro_status failed: %s", exc)
+    try:
+        cache.set("btc_treasuries", await fetch_btc_treasuries(client))
+        logger.info("[agent] cache: btc_treasuries updated")
+    except Exception as exc:
+        logger.warning("[agent] cache: btc_treasuries failed: %s", exc)
+    try:
+        briefing, headlines = await fetch_news_headlines(client)
+        if briefing or headlines:
+            cache.set("news", {"briefing": briefing, "headlines": headlines})
+            logger.info("[agent] cache: news updated")
+        vc = await fetch_fundraising(client)
+        if vc:
+            cache.set("vc_activity", vc)
+            logger.info("[agent] cache: vc_activity updated")
+    except Exception as exc:
+        logger.warning("[agent] cache: news/vc_activity failed: %s", exc)
+    try:
+        cache.set("market_status", await fetch_market_status(client))
+        logger.info("[agent] cache: market_status updated")
+    except Exception as exc:
+        logger.warning("[agent] cache: market_status failed: %s", exc)
 
 
 async def run_agent() -> None:
