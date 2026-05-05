@@ -73,7 +73,15 @@ def get_etf_flows() -> dict:
 
 @app.get("/api/macro")
 def get_macro() -> dict:
-    return {"macroStatus": cache.get("macro_status") or MACRO_STATUS}
+    cached = cache.get("macro_status")
+    if isinstance(cached, dict) and "indicators" in cached:
+        return {
+            "macroStatus": cached.get("indicators") or MACRO_STATUS,
+            "riskEnvironment": cached.get("risk_environment", "neutral"),
+            "upcomingEvents": cached.get("upcoming_events", []),
+            "macroStatusDetail": cached.get("macro_status", {}),
+        }
+    return {"macroStatus": cached or MACRO_STATUS}
 
 
 @app.get("/api/btc-treasuries")

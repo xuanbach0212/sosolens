@@ -61,3 +61,48 @@ async def fetch_macro_indicators(client: SoSoValueClient) -> list[dict]:
             "warning": warning,
         })
     return result
+
+
+_INDICATOR_KEYWORDS: dict[str, set[str]] = {
+    "fed_rate": {"fomc", "federal reserve", "rate decision", "interest rate"},
+    "cpi":      {"cpi", "inflation"},
+    "gdp":      {"gdp"},
+    "nfp":      {"nonfarm", "payroll"},
+    "ppi":      {"ppi"},
+}
+
+
+async def get_upcoming_events(client: SoSoValueClient, days: int = 14) -> list[dict]:
+    """Upcoming macro events within the given day window."""
+    events = await fetch_macro_events(client)
+    return [e for e in events if e["days_until"] <= days]
+
+
+async def get_macro_status(client: SoSoValueClient) -> dict:
+    """Named macro indicator status derived from event calendar titles.
+
+    Returns None for each indicator not found in the upcoming event stream.
+    """
+    events = await fetch_macro_events(client)
+    result: dict = {k: None for k in _INDICATOR_KEYWORDS}
+    for ev in events:
+        joined = " ".join(ev["events"]).lower()
+        for indicator, keywords in _INDICATOR_KEYWORDS.items():
+            if result[indicator] is None and any(k in joined for k in keywords):
+                result[indicator] = {
+                    "label": ", ".join(ev["events"][:2]),
+                    "days_until": ev["days_until"],
+                    "direction": "watch" if ev["days_until"] <= 7 else "neutral",
+                }
+    return result
+
+
+async def get_risk_environment(client: SoSoValueClient) -> str:
+    """Returns 'risk-on', 'risk-off', or 'neutral' based on nearest high-impact event."""
+    events = await fetch_macro_events(client)
+    nearest_high = next((e for e in events if e["high_impact"]), None)
+    if nearest_high is None:
+        return "risk-on"
+    if nearest_high["days_until"] <= 3:
+        return "risk-off"
+    return "neutral"

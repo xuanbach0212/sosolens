@@ -11,12 +11,33 @@ import backend.cache as cache
 logger = logging.getLogger(__name__)
 
 
+async def _refresh_macro_cache() -> None:
+    """Refresh macro cache independently — runs every 30 min."""
+    from backend.services.sosovalue import get_client
+    from backend.services.macro import (
+        fetch_macro_indicators,
+        get_macro_status,
+        get_upcoming_events,
+        get_risk_environment,
+    )
+    client = get_client()
+    try:
+        cache.set("macro_status", {
+            "indicators": await fetch_macro_indicators(client),
+            "macro_status": await get_macro_status(client),
+            "upcoming_events": await get_upcoming_events(client, days=14),
+            "risk_environment": await get_risk_environment(client),
+        })
+        logger.info("[agent] cache: macro_status updated (30-min)")
+    except Exception as exc:
+        logger.warning("[agent] cache: macro_refresh failed: %s", exc)
+
+
 async def _refresh_panel_cache() -> None:
     """Fetch slow panel data in background and store in cache for REST endpoints."""
     from backend.services.sosovalue import get_client
     from backend.services.etf import fetch_etf_snapshot
     from backend.services.sector import fetch_sector_flows
-    from backend.services.macro import fetch_macro_indicators
     from backend.services.btc_treasuries import fetch_btc_treasuries
     from backend.services.news import fetch_news_headlines, fetch_fundraising
     from backend.services.currency import fetch_market_status
@@ -31,11 +52,7 @@ async def _refresh_panel_cache() -> None:
         logger.info("[agent] cache: sector_flows updated")
     except Exception as exc:
         logger.warning("[agent] cache: sector_flows failed: %s", exc)
-    try:
-        cache.set("macro_status", await fetch_macro_indicators(client))
-        logger.info("[agent] cache: macro_status updated")
-    except Exception as exc:
-        logger.warning("[agent] cache: macro_status failed: %s", exc)
+    await _refresh_macro_cache()
     try:
         cache.set("btc_treasuries", await fetch_btc_treasuries(client))
         logger.info("[agent] cache: btc_treasuries updated")
@@ -102,6 +119,7 @@ async def run_agent() -> None:
 def start_scheduler() -> AsyncIOScheduler:
     scheduler = AsyncIOScheduler()
     scheduler.add_job(run_agent, "interval", hours=1, id="agent_hourly")
+    scheduler.add_job(_refresh_macro_cache, "interval", minutes=30, id="macro_30min")
     scheduler.start()
-    logger.info("[agent] Scheduler started — run_agent fires every hour")
+    logger.info("[agent] Scheduler started — run_agent hourly, macro refresh every 30 min")
     return scheduler
