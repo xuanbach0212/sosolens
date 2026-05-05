@@ -1,32 +1,20 @@
+import logging
 from backend.services.sosovalue import SoSoValueClient
 
+logger = logging.getLogger(__name__)
 
-async def fetch_etf_snapshot(client: SoSoValueClient) -> list[dict]:
-    raw = await client.get_etf_flows()
-    rows = raw.get("data") or raw.get("list") or raw
-    if not isinstance(rows, list):
-        raise ValueError(f"Unexpected ETF snapshot shape: {type(rows)}")
+BTC_TICKERS = ["IBIT", "FBTC", "ARKB"]
+ETH_TICKERS = ["ETHA", "ETHW"]
 
-    result = []
-    total_flow = 0.0
-    for item in rows:
-        net = float(item.get("netFlow") or item.get("net_flow") or 0)
-        total_flow += net
-        result.append({
-            "name": item.get("name") or item.get("etfName", "Unknown"),
-            "flow": _fmt_flow(net),
-            "arrows": _arrows(net),
-            "positive": net >= 0,
-        })
 
-    result.append({
-        "name": "TOTAL",
-        "flow": _fmt_flow(total_flow),
-        "arrows": _arrows(total_flow),
-        "positive": total_flow >= 0,
-        "total": True,
-    })
-    return result
+async def _net_inflow(client: SoSoValueClient, ticker: str) -> float:
+    try:
+        raw = await client.get_etf_snapshot(ticker)
+        data = raw.get("data") or {}
+        return float(data.get("net_inflow") or 0)
+    except Exception as exc:
+        logger.warning("[etf] %s snapshot failed: %s", ticker, exc)
+        return 0.0
 
 
 def _fmt_flow(usd: float) -> str:
@@ -47,3 +35,32 @@ def _arrows(usd: float) -> str:
     if usd > -100_000_000:
         return "↓"
     return "↓↓"
+
+
+async def fetch_etf_snapshot(client: SoSoValueClient) -> list[dict]:
+    btc_flow = 0.0
+    for ticker in BTC_TICKERS:
+        btc_flow += await _net_inflow(client, ticker)
+
+    eth_flow = 0.0
+    for ticker in ETH_TICKERS:
+        eth_flow += await _net_inflow(client, ticker)
+
+    total = btc_flow + eth_flow
+
+    return [
+        {"name": "BTC ETF", "flow": _fmt_flow(btc_flow), "arrows": _arrows(btc_flow), "positive": btc_flow >= 0},
+        {"name": "ETH ETF", "flow": _fmt_flow(eth_flow), "arrows": _arrows(eth_flow), "positive": eth_flow >= 0},
+        {"name": "TOTAL",   "flow": _fmt_flow(total),    "arrows": _arrows(total),    "positive": total >= 0, "total": True},
+    ]
+
+
+async def fetch_etf_total_flow(client: SoSoValueClient) -> float:
+    """Grand total net inflow in USD — used by ETFFlowSpikeDetector."""
+    btc_flow = 0.0
+    for ticker in BTC_TICKERS:
+        btc_flow += await _net_inflow(client, ticker)
+    eth_flow = 0.0
+    for ticker in ETH_TICKERS:
+        eth_flow += await _net_inflow(client, ticker)
+    return btc_flow + eth_flow

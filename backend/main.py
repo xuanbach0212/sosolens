@@ -1,4 +1,7 @@
 from contextlib import asynccontextmanager
+from dotenv import load_dotenv
+load_dotenv("backend/.env")
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.data.hardcoded import (
@@ -44,9 +47,9 @@ app.add_middleware(
 @app.get("/api/signals")
 def get_signals() -> dict:
     with get_db() as db:
-        db_signals = db.query(Signal).all()
-    if db_signals:
-        return {"signals": [s.payload for s in db_signals], "stats": SIGNAL_STATS}
+        payloads = [s.payload for s in db.query(Signal).all()]
+    if payloads:
+        return {"signals": payloads, "stats": SIGNAL_STATS}
     return {"signals": SIGNALS, "stats": SIGNAL_STATS}
 
 

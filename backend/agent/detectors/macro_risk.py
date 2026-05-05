@@ -1,105 +1,64 @@
 import logging
-import re
 from backend.services.sosovalue import get_client
-from backend.services.macro import fetch_macro_indicators
+from backend.services.macro import fetch_macro_events
 
 logger = logging.getLogger(__name__)
 
-# Indicators where rising (↑) is risk-off for crypto
-_RISK_OFF_IF_RISING = {"fed rate", "us cpi", "cpi", "dxy", "10y yield"}
-# Indicators where rising (↑) is risk-on for crypto
-_RISK_ON_IF_RISING = {"m2 supply", "m2"}
-
-
-def _arrow(ind: dict) -> str:
-    """Extract direction from arrow field, falling back to value text (e.g. M2 Supply)."""
-    a = ind.get("arrow", "")
-    if a in ("↑", "↓", "→"):
-        return a
-    v = ind.get("value", "")
-    if "↑" in v:
-        return "↑"
-    if "↓" in v:
-        return "↓"
-    return "→"
-
-
-def _is_event(ind: dict) -> bool:
-    """True if this indicator represents an upcoming macro event within 7 days."""
-    if ind.get("warning"):
-        return True
-    m = re.search(r"in\s+(\d+)d", ind.get("value", ""))
-    return bool(m and int(m.group(1)) <= 7)
+AVOID_DAYS = 3   # high-impact event within this many days → AVOID
+WATCH_DAYS = 7   # high-impact event within this many days → at least WATCH
 
 
 class MacroRiskDetector:
     async def run(self) -> list[dict]:
         try:
             client = get_client()
-            indicators = await fetch_macro_indicators(client)
+            events = await fetch_macro_events(client)
         except Exception as exc:
-            logger.warning(f"[macro_risk] fetch failed: {exc}")
+            logger.warning("[macro_risk] fetch failed: %s", exc)
             return []
 
-        if not indicators:
+        if not events:
             return []
 
-        risk_on = 0
-        risk_off = 0
-        event_risk = False
-        data_sources = []
+        nearest_high = None
+        for ev in events:
+            if ev["high_impact"]:
+                nearest_high = ev
+                break
 
-        for ind in indicators:
-            name = ind["name"].strip()
-            key = name.lower()
-            value = ind["value"]
-
-            if _is_event(ind):
-                event_risk = True
-                data_sources.append({"name": name, "value": value, "signal": "⚠️", "arrow": "→"})
-                continue
-
-            direction = _arrow(ind)
-
-            if key in _RISK_OFF_IF_RISING:
-                if direction == "↑":
-                    risk_off += 1
-                    emoji = "🔴"
-                elif direction == "↓":
-                    risk_on += 1
-                    emoji = "🟢"
-                else:
-                    emoji = "🟡"
-            elif key in _RISK_ON_IF_RISING:
-                if direction == "↑":
-                    risk_on += 1
-                    emoji = "🟢"
-                elif direction == "↓":
-                    risk_off += 1
-                    emoji = "🔴"
-                else:
-                    emoji = "🟡"
-            else:
-                emoji = "🟡"
-
-            data_sources.append({"name": name, "value": value, "signal": emoji, "arrow": direction})
-
-        if risk_off > risk_on:
+        if nearest_high is None:
+            sig_type = "BUY"
+            label = "No high-impact events in the near term"
+        elif nearest_high["days_until"] <= AVOID_DAYS:
             sig_type = "AVOID"
-        elif risk_on > risk_off:
-            sig_type = "WATCH" if event_risk else "BUY"
+            label = f"High-impact event imminent: {', '.join(nearest_high['events'][:2])}"
         else:
             sig_type = "WATCH"
+            label = (
+                f"High-impact event in {nearest_high['days_until']}d: "
+                f"{', '.join(nearest_high['events'][:2])}"
+            )
 
-        logger.info(
-            f"[macro_risk] signal={sig_type} risk_on={risk_on} "
-            f"risk_off={risk_off} event_risk={event_risk}"
-        )
+        data_sources = []
+        for ev in events[:5]:
+            days = ev["days_until"]
+            time_label = "today" if days == 0 else f"in {days}d"
+            emoji = "🔴" if (ev["high_impact"] and days <= AVOID_DAYS) else \
+                    "⚠️" if (ev["high_impact"] and days <= WATCH_DAYS) else "🟡"
+            data_sources.append({
+                "name": ", ".join(ev["events"][:2]),
+                "value": time_label,
+                "signal": emoji,
+                "arrow": "→",
+            })
+
+        logger.info("[macro_risk] signal=%s nearest_high=%s", sig_type,
+                    nearest_high["events"] if nearest_high else None)
 
         return [{
             "id": "macro-risk-classifier",
             "type": sig_type,
-            "sector": "Macro — Risk-On / Risk-Off",
+            "sector": f"Macro — {label}",
             "timeAgo": "0h",
             "dataSources": data_sources,
             "topTokens": [

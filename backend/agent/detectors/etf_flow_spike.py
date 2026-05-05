@@ -1,27 +1,22 @@
 import logging
 from backend.services.sosovalue import get_client
+from backend.services.etf import fetch_etf_total_flow
 
 logger = logging.getLogger(__name__)
 
 STRONG_BUY_USD = 400_000_000    # > $400M  → BUY
 WATCH_USD = 150_000_000         # > $150M  → WATCH
 STRONG_SELL_USD = -200_000_000  # < -$200M → AVOID
-BASELINE_USD = 150_000_000      # denominator for ratio display
+BASELINE_USD = 150_000_000
 
 
 class ETFFlowSpikeDetector:
     async def run(self) -> list[dict]:
         try:
             client = get_client()
-            raw = await client.get_etf_flows()
-            rows = raw.get("data") or raw.get("list") or raw
-            if not isinstance(rows, list):
-                logger.warning("[etf_spike] unexpected API shape, skipping")
-                return []
-
-            total = sum(float(r.get("netFlow") or r.get("net_flow") or 0) for r in rows)
+            total = await fetch_etf_total_flow(client)
         except Exception as exc:
-            logger.warning(f"[etf_spike] fetch failed: {exc}")
+            logger.warning("[etf_spike] fetch failed: %s", exc)
             return []
 
         if total > STRONG_BUY_USD:
@@ -31,14 +26,14 @@ class ETFFlowSpikeDetector:
         elif total < STRONG_SELL_USD:
             sig_type = "AVOID"
         else:
-            logger.info(f"[etf_spike] total={_fmt(total)} within normal range — no signal")
+            logger.info("[etf_spike] total=%s within normal range — no signal", _fmt(total))
             return []
 
         ratio = total / BASELINE_USD
         flow_signal = "🟢" if total > 0 else "🔴"
         flow_arrow = "↑↑" if total > 0 else "↓↓"
 
-        logger.info(f"[etf_spike] signal={sig_type} total={_fmt(total)} ratio={ratio:.1f}x")
+        logger.info("[etf_spike] signal=%s total=%s ratio=%.1fx", sig_type, _fmt(total), ratio)
 
         return [{
             "id": "etf-flow-spike",
