@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from backend.agent.db import get_db
 from backend.agent.detectors import DETECTORS
@@ -81,6 +82,7 @@ async def run_agent() -> None:
                     existing.risk = payload["risk"]
                     existing.explanation = explanation
                     existing.payload = payload
+                    existing.updated_at = datetime.now(timezone.utc)
                 else:
                     db.add(Signal(
                         signal_id=raw["id"],

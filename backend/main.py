@@ -41,12 +41,18 @@ app.add_middleware(
 )
 
 
+def _compute_stats(payloads: list[dict]) -> dict:
+    total = len(payloads)
+    # accuracy is historical win-rate; not tracked yet — keep hardcoded baseline
+    return {"today": total, "thisWeek": total, "accuracy": SIGNAL_STATS["accuracy"]}
+
+
 @app.get("/api/signals")
 def get_signals() -> dict:
     with get_db() as db:
         payloads = [s.payload for s in db.query(Signal).all()]
     if payloads:
-        return {"signals": payloads, "stats": SIGNAL_STATS}
+        return {"signals": payloads, "stats": _compute_stats(payloads)}
     return {"signals": SIGNALS, "stats": SIGNAL_STATS}
 
 
