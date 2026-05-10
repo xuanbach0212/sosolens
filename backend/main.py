@@ -1,11 +1,14 @@
 import asyncio
+import json
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 load_dotenv("backend/.env")
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+from backend.events import subscribe, unsubscribe
 from backend.data.hardcoded import (
     SIGNALS,
     SIGNAL_STATS,
@@ -121,3 +124,67 @@ async def trigger_agent_run() -> dict:
     """Manually trigger the agent loop (runs detectors + refreshes panel cache)."""
     await run_agent()
     return {"status": "ok"}
+
+
+def build_full_snapshot() -> dict:
+    now = datetime.now(timezone.utc)
+    with get_db() as db:
+        rows = db.query(Signal).all()
+        payloads = []
+        for s in rows:
+            p = dict(s.payload)
+            updated = s.updated_at
+            if updated.tzinfo is None:
+                updated = updated.replace(tzinfo=timezone.utc)
+            delta = now - updated
+            hours = int(delta.total_seconds() // 3600)
+            p["timeAgo"] = f"{hours}h" if hours < 24 else f"{delta.days}d"
+            payloads.append(p)
+    signals = payloads or SIGNALS
+    stats = _compute_stats(payloads) if payloads else SIGNAL_STATS
+
+    macro_cached = cache.get("macro_status")
+    if isinstance(macro_cached, dict) and "indicators" in macro_cached:
+        macro = macro_cached.get("indicators") or MACRO_STATUS
+    else:
+        macro = macro_cached or MACRO_STATUS
+
+    news_cached = cache.get("news")
+    briefing = news_cached.get("briefing", []) if news_cached else AI_BRIEFING
+    headlines = news_cached.get("headlines", []) if news_cached else NEWS_HEADLINES
+
+    return {
+        "signals": signals,
+        "stats": stats,
+        "market": cache.get("market_status") or MARKET_STATUS,
+        "sectorFlows": cache.get("sector_flows") or SECTOR_FLOWS,
+        "etfFlows": cache.get("etf_flows") or ETF_FLOWS,
+        "macroStatus": macro,
+        "btcTreasuries": cache.get("btc_treasuries") or BTC_TREASURIES,
+        "vcActivity": cache.get("vc_activity") or VC_ACTIVITY,
+        "aiBriefing": briefing,
+        "newsHeadlines": headlines,
+    }
+
+
+@app.get("/api/stream")
+async def stream(request: Request):
+    q = subscribe()
+
+    async def gen():
+        try:
+            yield f"data: {json.dumps(build_full_snapshot())}\n\n"
+            while not await request.is_disconnected():
+                try:
+                    data = await asyncio.wait_for(q.get(), timeout=30)
+                    yield f"data: {json.dumps(data)}\n\n"
+                except asyncio.TimeoutError:
+                    yield ": heartbeat\n\n"
+        finally:
+            unsubscribe(q)
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

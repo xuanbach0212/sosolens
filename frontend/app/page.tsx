@@ -22,6 +22,7 @@ export default function Page() {
     newsHeadlines,
     isLoading,
     isError,
+    isConnected,
     lastUpdated,
   } = useDashboardData();
 
@@ -45,7 +46,7 @@ export default function Page() {
         gridTemplateColumns: "220px 1fr 260px",
       }}
     >
-      <TopBar market={market} isLoading={isLoading} isError={isError} lastUpdated={lastUpdated} />
+      <TopBar market={market} isLoading={isLoading} isError={isError} isConnected={isConnected} lastUpdated={lastUpdated} />
       <SignalFeed
         signals={signals}
         selectedId={effectiveId ?? signals[0].id}

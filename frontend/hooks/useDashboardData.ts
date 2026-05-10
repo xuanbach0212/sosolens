@@ -41,6 +41,7 @@ export interface DashboardData {
   newsHeadlines: NewsHeadline[];
   isLoading: boolean;
   isError: boolean;
+  isConnected: boolean;
   lastUpdated: Date | null;
   refresh: () => void;
 }
@@ -58,6 +59,7 @@ export function useDashboardData(): DashboardData {
   const [newsHeadlines, setNewsHeadlines] = useState<NewsHeadline[]>(fallbackNewsHeadlines);
   const [isLoading, setIsLoading] = useState(false);
   const [isError, setIsError] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const fetchAll = useCallback(async () => {
@@ -103,9 +105,43 @@ export function useDashboardData(): DashboardData {
   }, []);
 
   useEffect(() => {
-    fetchAll();
-    const id = setInterval(fetchAll, REFRESH_INTERVAL_MS);
-    return () => clearInterval(id);
+    let pollId: ReturnType<typeof setInterval> | null = null;
+    const es = new EventSource(`${API_BASE}/api/stream`);
+
+    es.onmessage = (e) => {
+      if (pollId !== null) {
+        clearInterval(pollId);
+        pollId = null;
+      }
+      const snap = JSON.parse(e.data);
+      if (snap.signals) setSignals(snap.signals);
+      if (snap.stats) setStats(snap.stats);
+      if (snap.market) setMarket(snap.market);
+      if (snap.sectorFlows) setSectorFlows(snap.sectorFlows);
+      if (snap.etfFlows) setEtfFlows(snap.etfFlows);
+      if (snap.macroStatus) setMacroStatus(snap.macroStatus);
+      if (snap.btcTreasuries) setBtcTreasuries(snap.btcTreasuries);
+      if (snap.vcActivity) setVcActivity(snap.vcActivity);
+      if (snap.aiBriefing) setAiBriefing(snap.aiBriefing);
+      if (snap.newsHeadlines) setNewsHeadlines(snap.newsHeadlines);
+      setLastUpdated(new Date());
+      setIsConnected(true);
+      setIsLoading(false);
+      setIsError(false);
+    };
+
+    es.onerror = () => {
+      setIsConnected(false);
+      if (pollId === null) {
+        fetchAll();
+        pollId = setInterval(fetchAll, REFRESH_INTERVAL_MS);
+      }
+    };
+
+    return () => {
+      es.close();
+      if (pollId !== null) clearInterval(pollId);
+    };
   }, [fetchAll]);
 
   return {
@@ -121,6 +157,7 @@ export function useDashboardData(): DashboardData {
     newsHeadlines,
     isLoading,
     isError,
+    isConnected,
     lastUpdated,
     refresh: fetchAll,
   };
