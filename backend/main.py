@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 load_dotenv("backend/.env")
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from backend.events import subscribe, unsubscribe
@@ -40,7 +40,7 @@ app = FastAPI(title="SoSoAlpha API", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:3000", "http://100.67.197.22:3000", "http://192.168.1.162:3000"],
     allow_credentials=True,
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
@@ -127,13 +127,13 @@ async def trigger_agent_run() -> dict:
 
 
 @app.get("/api/stream")
-async def stream(request: Request):
+async def stream():
     q = subscribe()
 
     async def gen():
         try:
             yield f"data: {json.dumps(build_full_snapshot())}\n\n"
-            while not await request.is_disconnected():
+            while True:
                 try:
                     data = await asyncio.wait_for(q.get(), timeout=30)
                     yield f"data: {json.dumps(data)}\n\n"
