@@ -150,7 +150,7 @@ NEXT_PUBLIC_CHAIN_ID=   # (Wave 2)
 | GET | `/api/market` | `{market: MarketStatus}` |
 | GET | `/api/sector-flows` | `{sectorFlows: SectorFlow[]}` — live from SoSoValue, fallback hardcoded |
 | GET | `/api/etf-flows` | `{etfFlows: EtfFlow[]}` — live from SoSoValue, fallback hardcoded |
-| GET | `/api/macro` | `{macroStatus: MacroItem[]}` |
+| GET | `/api/macro` | `{macroStatus: MacroItem[], riskEnvironment: string, upcomingEvents: MacroEvent[], macroStatusDetail: dict}` |
 | GET | `/api/btc-treasuries` | `{btcTreasuries: BtcTreasury[]}` |
 | GET | `/api/vc-activity` | `{vcActivity: VcActivity[]}` |
 | GET | `/api/news` | `{aiBriefing: string[], newsHeadlines: NewsHeadline[]}` |
@@ -194,7 +194,7 @@ The runner (`runner.py`) iterates `DETECTORS`, calls `run()`, pipes each raw sig
 - #18–#24 All frontend panels + live polling hook
 
 **Remaining before submission:**
-- #32 Remove dummy data — connect all UI panels to live BE endpoints (Wave 1 bonus)
+- #36 Remove dummy data — connect all UI panels to live BE endpoints
 
 ---
 

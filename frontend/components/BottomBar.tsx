@@ -3,9 +3,17 @@ import type { NewsHeadline } from "@/types";
 interface Props {
   briefing: string[];
   news: NewsHeadline[];
+  lastUpdated: Date | null;
 }
 
-export default function BottomBar({ briefing, news }: Props) {
+function formatTimestamp(d: Date): string {
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const h = String(d.getUTCHours()).padStart(2, '0');
+  const m = String(d.getUTCMinutes()).padStart(2, '0');
+  return `${months[d.getUTCMonth()]} ${d.getUTCDate()} · ${h}:${m} UTC`;
+}
+
+export default function BottomBar({ briefing, news, lastUpdated }: Props) {
   return (
     <div
       className="border-t border-terminal-border bg-terminal-panel px-3 py-2 flex gap-6 overflow-hidden"
@@ -14,7 +22,7 @@ export default function BottomBar({ briefing, news }: Props) {
       {/* AI Briefing */}
       <div className="flex-1 min-w-0">
         <div className="text-[10px] font-bold text-terminal-muted tracking-widest mb-1">
-          AI BRIEFING · May 4 · 14:32 UTC
+          AI BRIEFING{lastUpdated ? ` · ${formatTimestamp(lastUpdated)}` : ""}
         </div>
         <div className="space-y-0.5">
           {briefing.map((point, i) => (

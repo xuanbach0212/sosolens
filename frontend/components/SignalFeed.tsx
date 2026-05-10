@@ -4,12 +4,14 @@ import type { Signal, SignalType } from "@/types";
 
 const TYPE_COLOR: Record<SignalType, string> = {
   BUY: "text-terminal-green border-terminal-green",
+  SELL: "text-terminal-red border-terminal-red",
   WATCH: "text-terminal-yellow border-terminal-yellow",
   AVOID: "text-terminal-red border-terminal-red",
 };
 
 const TYPE_EMOJI: Record<SignalType, string> = {
   BUY: "🟢",
+  SELL: "🔴",
   WATCH: "🟡",
   AVOID: "🔴",
 };

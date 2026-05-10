@@ -2,12 +2,14 @@ import type { Signal, SignalType } from "@/types";
 
 const TYPE_COLOR: Record<SignalType, string> = {
   BUY: "text-terminal-green",
+  SELL: "text-terminal-red",
   WATCH: "text-terminal-yellow",
   AVOID: "text-terminal-red",
 };
 
 const TYPE_BAR_COLOR: Record<SignalType, string> = {
   BUY: "bg-terminal-green",
+  SELL: "bg-terminal-red",
   WATCH: "bg-terminal-yellow",
   AVOID: "bg-terminal-red",
 };
@@ -44,8 +46,7 @@ export default function SignalDetail({ signal }: Props) {
         {/* Header */}
         <div>
           <div className={`text-sm font-bold ${typeColor}`}>
-            {signal.type === "BUY" ? "🟢" : signal.type === "WATCH" ? "🟡" : "🔴"}{" "}
-            {signal.type} SIGNAL — {signal.sector.toUpperCase()}
+            {signal.type === "BUY" ? "🟢" : signal.type === "WATCH" ? "🟡" : "🔴"} {signal.type} SIGNAL — {signal.sector.toUpperCase()}
           </div>
           <div className="flex items-center gap-3 mt-2">
             <div className="flex-1">
@@ -123,26 +124,32 @@ export default function SignalDetail({ signal }: Props) {
           <SectionHeader title="SIMILAR PAST SIGNALS" />
           <table className="w-full text-[10px]">
             <tbody>
-              {signal.pastSignals.map((past, i) => (
-                <tr key={i} className="border-b border-terminal-border">
-                  <td className="py-1 text-terminal-muted">{past.date}</td>
-                  <td className="py-1 text-terminal-text">{past.label}</td>
-                  <td
-                    className={`py-1 ${
-                      past.success ? "text-terminal-green" : "text-terminal-red"
-                    }`}
-                  >
-                    {past.result}
-                  </td>
-                  <td className="py-1 text-right">{past.success ? "✅" : "❌"}</td>
+              {signal.pastSignals.length === 0 ? (
+                <tr>
+                  <td className="py-1 text-terminal-muted italic" colSpan={4}>No history yet</td>
                 </tr>
-              ))}
+              ) : (
+                signal.pastSignals.map((past, i) => (
+                  <tr key={i} className="border-b border-terminal-border">
+                    <td className="py-1 text-terminal-muted">{past.date}</td>
+                    <td className="py-1 text-terminal-text">{past.label}</td>
+                    <td
+                      className={`py-1 ${
+                        past.success ? "text-terminal-green" : "text-terminal-red"
+                      }`}
+                    >
+                      {past.result}
+                    </td>
+                    <td className="py-1 text-right">{past.success ? "✅" : "❌"}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
           <div className="text-[10px] text-terminal-muted mt-1">
             Signal accuracy:{" "}
             <span className={signal.accuracy >= 70 ? "text-terminal-green" : "text-terminal-yellow"}>
-              {signal.accuracy}%
+              {signal.accuracy > 0 ? `${signal.accuracy}%` : "—"}
             </span>
           </div>
         </div>

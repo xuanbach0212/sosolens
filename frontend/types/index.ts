@@ -1,4 +1,4 @@
-export type SignalType = 'BUY' | 'WATCH' | 'AVOID';
+export type SignalType = 'BUY' | 'SELL' | 'WATCH' | 'AVOID';
 export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';
 
 export interface DataSourceRow {

@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 load_dotenv("backend/.env")
 
@@ -50,7 +51,18 @@ def _compute_stats(payloads: list[dict]) -> dict:
 @app.get("/api/signals")
 def get_signals() -> dict:
     with get_db() as db:
-        payloads = [s.payload for s in db.query(Signal).all()]
+        rows = db.query(Signal).all()
+        now = datetime.now(timezone.utc)
+        payloads = []
+        for s in rows:
+            p = dict(s.payload)
+            updated = s.updated_at
+            if updated.tzinfo is None:
+                updated = updated.replace(tzinfo=timezone.utc)
+            delta = now - updated
+            hours = int(delta.total_seconds() // 3600)
+            p["timeAgo"] = f"{hours}h" if hours < 24 else f"{delta.days}d"
+            payloads.append(p)
     if payloads:
         return {"signals": payloads, "stats": _compute_stats(payloads)}
     return {"signals": SIGNALS, "stats": SIGNAL_STATS}

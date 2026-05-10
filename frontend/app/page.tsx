@@ -60,7 +60,7 @@ export default function Page() {
         btcTreasuries={btcTreasuries}
         vcActivity={vcActivity}
       />
-      <BottomBar briefing={aiBriefing} news={newsHeadlines} />
+      <BottomBar briefing={aiBriefing} news={newsHeadlines} lastUpdated={lastUpdated} />
     </div>
   );
 }
