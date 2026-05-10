@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from dotenv import load_dotenv
@@ -27,6 +28,7 @@ import backend.cache as cache
 async def lifespan(app: FastAPI):
     init_db()
     scheduler = start_scheduler()
+    asyncio.create_task(run_agent())  # populate cache + DB immediately; scheduler handles hourly after
     yield
     scheduler.shutdown()
 

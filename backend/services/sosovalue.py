@@ -78,8 +78,8 @@ class SoSoValueClient:
     async def get_etf_history(self, etf_id: str, days: int = 7) -> Any:
         return await self._get("/etf/market/history", params={"etfId": etf_id, "days": days})
 
-    async def get_prices(self, symbols: list[str]) -> Any:
-        return await self._get("/currency/market", params={"symbols": ",".join(symbols)})
+    async def get_currency_snapshot(self, currency_id: str) -> Any:
+        return await self._get(f"/currencies/{currency_id}/market-snapshot")
 
 
 _client: "SoSoValueClient | None" = None

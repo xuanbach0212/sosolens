@@ -38,11 +38,13 @@ def mock_client():
             {"sector": "RWA",     "amount_usd": 15_000_000},
         ]
     }
-    client.get_prices.return_value = {
-        "data": [
-            {"symbol": "BTC", "price": 95000.0},
-            {"symbol": "ETH", "price": 1800.0},
-        ]
+    client.get_currency_snapshot.return_value = {
+        "data": {
+            "price": 95000.0,
+            "change_pct_24h": 0.021,
+            "marketcap": 1_900_000_000_000.0,
+            "turnover_24h": 50_000_000_000.0,
+        }
     }
 
     return client
