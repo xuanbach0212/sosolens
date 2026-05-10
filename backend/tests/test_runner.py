@@ -87,6 +87,28 @@ async def test_upsert_does_not_duplicate(mem_db):
     assert len(rows) == 1
 
 
+async def test_run_agent_broadcasts(mem_db, monkeypatch):
+    get_db_func, _ = mem_db
+    monkeypatch.setattr("backend.agent.runner.get_db", get_db_func)
+    mock_detector = AsyncMock()
+    mock_detector.run = AsyncMock(return_value=[_raw_signal()])
+    monkeypatch.setattr("backend.agent.runner.DETECTORS", [mock_detector])
+    monkeypatch.setattr("backend.agent.runner.explain_signal", AsyncMock(return_value="test"))
+    monkeypatch.setattr("backend.agent.runner._refresh_panel_cache", AsyncMock())
+
+    broadcasts = []
+
+    async def fake_broadcast(data):
+        broadcasts.append(data)
+
+    monkeypatch.setattr("backend.agent.runner.broadcast", fake_broadcast)
+
+    await run_agent()
+    assert len(broadcasts) == 1
+    assert "signals" in broadcasts[0]
+    assert "market" in broadcasts[0]
+
+
 async def test_upsert_updates_fields(mem_db):
     get_db, Session = mem_db
     mock_detector = AsyncMock()

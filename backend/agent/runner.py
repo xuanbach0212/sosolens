@@ -7,6 +7,12 @@ from backend.agent.scorer import score_signal
 from backend.agent.explainer import explain_signal
 from backend.agent.models import Signal
 import backend.cache as cache
+from backend.events import broadcast
+from backend.data.hardcoded import (
+    SIGNALS, SIGNAL_STATS, MARKET_STATUS, SECTOR_FLOWS,
+    ETF_FLOWS, MACRO_STATUS, BTC_TREASURIES, VC_ACTIVITY,
+    AI_BRIEFING, NEWS_HEADLINES,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +82,58 @@ async def _refresh_panel_cache() -> None:
         logger.warning("[agent] cache: market_status failed: %s", exc)
 
 
+def build_full_snapshot() -> dict:
+    with get_db() as db:
+        rows = db.query(Signal).all()
+        now = datetime.now(timezone.utc)
+        payloads = []
+        for s in rows:
+            p = dict(s.payload)
+            updated = s.updated_at
+            if updated.tzinfo is None:
+                updated = updated.replace(tzinfo=timezone.utc)
+            delta = now - updated
+            hours = int(delta.total_seconds() // 3600)
+            p["timeAgo"] = f"{hours}h" if hours < 24 else f"{delta.days}d"
+            payloads.append(p)
+
+    signals = payloads if payloads else SIGNALS
+    stats = (
+        {"today": len(signals), "thisWeek": len(signals), "accuracy": SIGNAL_STATS["accuracy"]}
+        if payloads else SIGNAL_STATS
+    )
+
+    cached_macro = cache.get("macro_status")
+    if isinstance(cached_macro, dict) and "indicators" in cached_macro:
+        macro = {
+            "macroStatus": cached_macro.get("indicators") or MACRO_STATUS,
+            "riskEnvironment": cached_macro.get("risk_environment", "neutral"),
+            "upcomingEvents": cached_macro.get("upcoming_events", []),
+            "macroStatusDetail": cached_macro.get("macro_status", {}),
+        }
+    else:
+        macro = {"macroStatus": cached_macro or MACRO_STATUS}
+
+    cached_news = cache.get("news")
+    news = (
+        {"aiBriefing": cached_news.get("briefing", []), "newsHeadlines": cached_news.get("headlines", [])}
+        if cached_news
+        else {"aiBriefing": AI_BRIEFING, "newsHeadlines": NEWS_HEADLINES}
+    )
+
+    return {
+        "signals": signals,
+        "stats": stats,
+        "market": cache.get("market_status") or MARKET_STATUS,
+        "sectorFlows": cache.get("sector_flows") or SECTOR_FLOWS,
+        "etfFlows": cache.get("etf_flows") or ETF_FLOWS,
+        **macro,
+        "btcTreasuries": cache.get("btc_treasuries") or BTC_TREASURIES,
+        "vcActivity": cache.get("vc_activity") or VC_ACTIVITY,
+        **news,
+    }
+
+
 async def run_agent() -> None:
     logger.info(f"[agent] run_agent: {len(DETECTORS)} detectors loaded")
     if not DETECTORS:
@@ -112,8 +170,9 @@ async def run_agent() -> None:
                     ))
             generated += 1
 
-    logger.info(f"[agent] run_agent done — {generated} signals upserted")
     await _refresh_panel_cache()
+    await broadcast(build_full_snapshot())
+    logger.info("[agent] run_agent done — %d signals upserted, SSE broadcast sent", generated)
 
 
 def start_scheduler() -> AsyncIOScheduler:
