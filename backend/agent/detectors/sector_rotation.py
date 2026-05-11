@@ -1,4 +1,5 @@
 import logging
+import backend.cache as cache
 from backend.services.sosovalue import get_client
 from backend.services.sector import fetch_sector_flows
 
@@ -15,6 +16,7 @@ class SectorRotationDetector:
         try:
             client = get_client()
             sectors = await fetch_sector_flows(client)
+            cache.set("sector_flows", sectors)
         except Exception as exc:
             logger.warning("[sector_rotation] fetch failed: %s", exc)
             return []
@@ -54,12 +56,12 @@ class SectorRotationDetector:
                 {"name": "Signal Tier", "value": sig_type, "signal": flow_signal},
             ],
             "topTokens": [
-                {"symbol": leader["name"].upper()[:4], "change": leader_label, "positive": True},
-                {"symbol": lagger["name"].upper()[:4], "change": lagger_label, "positive": False},
+                {"symbol": leader["name"], "price": "—", "change": leader_label, "positive": True},
+                {"symbol": lagger["name"], "price": "—", "change": lagger_label, "positive": False},
             ],
             "pastSignals": [],
             "accuracy": 0,
-            "sodexPair": f"BUY {leader['name'].upper()[:4]}/USDC" if sig_type == "BUY" else "—",
+            "sodexPair": f"BUY {leader['name'].upper()}/USDC" if sig_type == "BUY" else "—",
             "sodexSlippage": "1%",
             "sodexEstOutput": "—",
         }]

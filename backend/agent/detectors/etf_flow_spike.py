@@ -1,12 +1,14 @@
 import logging
+import backend.cache as cache
 from backend.services.sosovalue import get_client
-from backend.services.etf import fetch_etf_total_flow
+from backend.services.etf import fetch_etf_data
 from backend.services.currency import fetch_btc_eth_prices
 
 logger = logging.getLogger(__name__)
 
 STRONG_BUY_USD = 400_000_000    # > $400M  → BUY
-WATCH_USD = 150_000_000         # > $150M  → WATCH
+WATCH_USD      =  50_000_000    # > $50M   → WATCH
+WATCH_NEG_USD  = -50_000_000    # < -$50M  → WATCH (caution)
 STRONG_SELL_USD = -200_000_000  # < -$200M → AVOID
 BASELINE_USD = 150_000_000
 
@@ -15,7 +17,8 @@ class ETFFlowSpikeDetector:
     async def run(self) -> list[dict]:
         try:
             client = get_client()
-            total = await fetch_etf_total_flow(client)
+            snapshot, total = await fetch_etf_data(client)
+            cache.set("etf_flows", snapshot)
         except Exception as exc:
             logger.warning("[etf_spike] fetch failed: %s", exc)
             return []
@@ -28,6 +31,8 @@ class ETFFlowSpikeDetector:
             sig_type = "WATCH"
         elif total < STRONG_SELL_USD:
             sig_type = "AVOID"
+        elif total < WATCH_NEG_USD:
+            sig_type = "WATCH"
         else:
             logger.info("[etf_spike] total=%s within normal range — no signal", _fmt(total))
             return []

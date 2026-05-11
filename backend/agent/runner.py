@@ -40,7 +40,8 @@ async def _refresh_macro_cache() -> None:
 
 
 async def _refresh_panel_cache() -> None:
-    """Fetch slow panel data in background and store in cache for REST endpoints."""
+    """Fetch panel data and store in cache. Market status is fetched first (highest priority).
+    ETF and sector flows are skipped if detectors already cached them this run."""
     from backend.services.sosovalue import get_client
     from backend.services.etf import fetch_etf_snapshot
     from backend.services.sector import fetch_sector_flows
@@ -48,16 +49,25 @@ async def _refresh_panel_cache() -> None:
     from backend.services.news import fetch_news_headlines, fetch_fundraising
     from backend.services.currency import fetch_market_status
     client = get_client()
+    # Market status first — most visible data, fewest calls (2)
     try:
-        cache.set("etf_flows", await fetch_etf_snapshot(client))
-        logger.info("[agent] cache: etf_flows updated")
+        cache.set("market_status", await fetch_market_status(client))
+        logger.info("[agent] cache: market_status updated")
     except Exception as exc:
-        logger.warning("[agent] cache: etf_flows failed: %s", exc)
-    try:
-        cache.set("sector_flows", await fetch_sector_flows(client))
-        logger.info("[agent] cache: sector_flows updated")
-    except Exception as exc:
-        logger.warning("[agent] cache: sector_flows failed: %s", exc)
+        logger.warning("[agent] cache: market_status failed: %s", exc)
+    # ETF and sector: skip if detectors already populated cache this run
+    if not cache.get("etf_flows"):
+        try:
+            cache.set("etf_flows", await fetch_etf_snapshot(client))
+            logger.info("[agent] cache: etf_flows updated")
+        except Exception as exc:
+            logger.warning("[agent] cache: etf_flows failed: %s", exc)
+    if not cache.get("sector_flows"):
+        try:
+            cache.set("sector_flows", await fetch_sector_flows(client))
+            logger.info("[agent] cache: sector_flows updated")
+        except Exception as exc:
+            logger.warning("[agent] cache: sector_flows failed: %s", exc)
     await _refresh_macro_cache()
     try:
         cache.set("btc_treasuries", await fetch_btc_treasuries(client))
@@ -75,11 +85,9 @@ async def _refresh_panel_cache() -> None:
             logger.info("[agent] cache: vc_activity updated")
     except Exception as exc:
         logger.warning("[agent] cache: news/vc_activity failed: %s", exc)
-    try:
-        cache.set("market_status", await fetch_market_status(client))
-        logger.info("[agent] cache: market_status updated")
-    except Exception as exc:
-        logger.warning("[agent] cache: market_status failed: %s", exc)
+
+
+_MAX_SIGNAL_AGE_HOURS = 25
 
 
 def build_full_snapshot() -> dict:
@@ -88,12 +96,14 @@ def build_full_snapshot() -> dict:
         now = datetime.now(timezone.utc)
         payloads = []
         for s in rows:
-            p = dict(s.payload)
             updated = s.updated_at
             if updated.tzinfo is None:
                 updated = updated.replace(tzinfo=timezone.utc)
             delta = now - updated
+            if delta.total_seconds() > _MAX_SIGNAL_AGE_HOURS * 3600:
+                continue  # skip stale signals
             hours = int(delta.total_seconds() // 3600)
+            p = dict(s.payload)
             p["timeAgo"] = f"{hours}h" if hours < 24 else f"{delta.days}d"
             payloads.append(p)
 

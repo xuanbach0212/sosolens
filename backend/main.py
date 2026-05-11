@@ -49,6 +49,9 @@ def _compute_stats(payloads: list[dict]) -> dict:
     return {"today": total, "thisWeek": total, "accuracy": 0}
 
 
+_MAX_SIGNAL_AGE_HOURS = 25
+
+
 @app.get("/api/signals")
 def get_signals() -> dict:
     with get_db() as db:
@@ -56,12 +59,14 @@ def get_signals() -> dict:
         now = datetime.now(timezone.utc)
         payloads = []
         for s in rows:
-            p = dict(s.payload)
             updated = s.updated_at
             if updated.tzinfo is None:
                 updated = updated.replace(tzinfo=timezone.utc)
             delta = now - updated
+            if delta.total_seconds() > _MAX_SIGNAL_AGE_HOURS * 3600:
+                continue  # skip stale signals
             hours = int(delta.total_seconds() // 3600)
+            p = dict(s.payload)
             p["timeAgo"] = f"{hours}h" if hours < 24 else f"{delta.days}d"
             payloads.append(p)
     if payloads:
