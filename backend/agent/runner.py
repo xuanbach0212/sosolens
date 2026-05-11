@@ -9,7 +9,7 @@ from backend.agent.models import Signal
 import backend.cache as cache
 from backend.events import broadcast
 from backend.data.hardcoded import (
-    SIGNALS, SIGNAL_STATS, MARKET_STATUS, SECTOR_FLOWS,
+    MARKET_STATUS, SECTOR_FLOWS,
     ETF_FLOWS, MACRO_STATUS, BTC_TREASURIES, VC_ACTIVITY,
     AI_BRIEFING, NEWS_HEADLINES,
 )
@@ -97,11 +97,8 @@ def build_full_snapshot() -> dict:
             p["timeAgo"] = f"{hours}h" if hours < 24 else f"{delta.days}d"
             payloads.append(p)
 
-    signals = payloads if payloads else SIGNALS
-    stats = (
-        {"today": len(signals), "thisWeek": len(signals), "accuracy": SIGNAL_STATS["accuracy"]}
-        if payloads else SIGNAL_STATS
-    )
+    signals = payloads
+    stats = {"today": len(signals), "thisWeek": len(signals), "accuracy": 0}
 
     cached_macro = cache.get("macro_status")
     if isinstance(cached_macro, dict) and "indicators" in cached_macro:

@@ -36,6 +36,9 @@ export default function MarketIntelligence({
       {/* Sector Flows */}
       <div>
         <PanelHeader title="SECTOR FLOWS (7D)" />
+        {sectorFlows.length === 0 && (
+          <div className="text-[10px] text-terminal-muted italic">Loading...</div>
+        )}
         <div className="space-y-0.5">
           {sectorFlows.map((s) => {
             const pct = Math.abs(s.change) / MAX_FLOW;
@@ -67,6 +70,9 @@ export default function MarketIntelligence({
       {/* ETF Flows */}
       <div>
         <PanelHeader title="ETF FLOWS (24H)" />
+        {etfFlows.length === 0 && (
+          <div className="text-[10px] text-terminal-muted italic">Loading...</div>
+        )}
         <div className="space-y-0.5">
           {etfFlows.map((e) => (
             <div
@@ -87,6 +93,9 @@ export default function MarketIntelligence({
       {/* Macro Status */}
       <div>
         <PanelHeader title="MACRO STATUS" />
+        {macroStatus.length === 0 && (
+          <div className="text-[10px] text-terminal-muted italic">Loading...</div>
+        )}
         <div className="space-y-0.5">
           {macroStatus.map((m) => (
             <div key={m.name} className="flex justify-between text-[10px]">
@@ -102,6 +111,9 @@ export default function MarketIntelligence({
       {/* BTC Treasuries */}
       <div>
         <PanelHeader title="BTC TREASURIES" />
+        {btcTreasuries.length === 0 && (
+          <div className="text-[10px] text-terminal-muted italic">Loading...</div>
+        )}
         <div className="space-y-1">
           {btcTreasuries.map((t) => (
             <div key={t.company}>
@@ -129,6 +141,9 @@ export default function MarketIntelligence({
       {/* VC Activity */}
       <div>
         <PanelHeader title="VC ACTIVITY (7D)" />
+        {vcActivity.length === 0 && (
+          <div className="text-[10px] text-terminal-muted italic">Loading...</div>
+        )}
         <div className="space-y-0.5">
           {vcActivity.map((v) => (
             <div key={v.sector} className="flex justify-between text-[10px]">

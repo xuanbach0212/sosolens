@@ -33,6 +33,31 @@ def _sentiment(btc_change: float) -> tuple[str, bool]:
     return "NEUTRAL", True
 
 
+async def fetch_btc_eth_prices(client: SoSoValueClient) -> tuple[dict, dict]:
+    """Return (btc_token, eth_token) dicts ready for topTokens, or placeholder dicts on failure."""
+    placeholder = lambda sym: {"symbol": sym, "price": "—", "change": "—", "positive": True}
+    try:
+        btc_raw = (await client.get_currency_snapshot(BTC_ID)).get("data") or {}
+        eth_raw = (await client.get_currency_snapshot(ETH_ID)).get("data") or {}
+    except Exception as exc:
+        logger.warning("[currency] price fetch failed: %s", exc)
+        return placeholder("BTC"), placeholder("ETH")
+
+    def _token(sym: str, raw: dict) -> dict:
+        price = float(raw.get("price") or 0)
+        change = float(raw.get("change_pct_24h") or 0)
+        if not price:
+            return {"symbol": sym, "price": "—", "change": "—", "positive": True}
+        return {
+            "symbol": sym,
+            "price": _fmt_price(price),
+            "change": _fmt_change(change),
+            "positive": change >= 0,
+        }
+
+    return _token("BTC", btc_raw), _token("ETH", eth_raw)
+
+
 async def fetch_market_status(client: SoSoValueClient) -> dict:
     from backend.data.hardcoded import MARKET_STATUS
 

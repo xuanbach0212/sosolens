@@ -1,7 +1,7 @@
 import type { MarketStatus } from "@/types";
 
 interface Props {
-  market: MarketStatus;
+  market: MarketStatus | null;
   isLoading: boolean;
   isError: boolean;
   isConnected: boolean;
@@ -17,6 +17,8 @@ export default function TopBar({ market, isLoading, isError, isConnected, lastUp
     ? <span className="text-terminal-yellow">● CONNECTING...</span>
     : <span className="text-terminal-muted">● SOSOVALUE API</span>;
 
+  const dash = "—";
+
   return (
     <div
       className="border-b border-terminal-border bg-terminal-panel px-3 flex flex-col justify-center"
@@ -29,36 +31,48 @@ export default function TopBar({ market, isLoading, isError, isConnected, lastUp
         <span className="text-terminal-muted">│</span>
         <span>
           MARKET:{" "}
-          <span className={market.sentimentPositive ? "text-terminal-green" : "text-terminal-red"}>
-            {market.sentimentPositive ? "🟢" : "🔴"} {market.sentiment}
+          {market ? (
+            <span className={market.sentimentPositive ? "text-terminal-green" : "text-terminal-red"}>
+              {market.sentimentPositive ? "🟢" : "🔴"} {market.sentiment}
+            </span>
+          ) : (
+            <span className="text-terminal-muted">{dash}</span>
+          )}
+        </span>
+        <span className="text-terminal-muted">│</span>
+        <span>
+          BTC <span className="text-terminal-text">{market?.btcPrice ?? dash}</span>{" "}
+          <span className={market && parseFloat(market.btcChange) >= 0 ? "text-terminal-green" : "text-terminal-red"}>
+            {market?.btcChange ?? ""}
           </span>
         </span>
         <span className="text-terminal-muted">│</span>
         <span>
-          BTC <span className="text-terminal-text">{market.btcPrice}</span>{" "}
-          <span className="text-terminal-green">{market.btcChange}</span>
+          ETH <span className="text-terminal-text">{market?.ethPrice ?? dash}</span>{" "}
+          <span className={market && parseFloat(market.ethChange) >= 0 ? "text-terminal-green" : "text-terminal-red"}>
+            {market?.ethChange ?? ""}
+          </span>
         </span>
         <span className="text-terminal-muted">│</span>
         <span>
-          ETH <span className="text-terminal-text">{market.ethPrice}</span>{" "}
-          <span className="text-terminal-green">{market.ethChange}</span>
+          MCAP <span className="text-terminal-text">{market?.mcap ?? dash}</span>{" "}
+          <span className="text-terminal-green">{market?.mcapChange ?? ""}</span>
         </span>
         <span className="text-terminal-muted">│</span>
         <span>
-          MCAP <span className="text-terminal-text">{market.mcap}</span>{" "}
-          <span className="text-terminal-green">{market.mcapChange}</span>
-        </span>
-        <span className="text-terminal-muted">│</span>
-        <span>
-          VOL <span className="text-terminal-text">{market.vol}</span>{" "}
-          <span className="text-terminal-green">{market.volChange}</span>
+          VOL <span className="text-terminal-text">{market?.vol ?? dash}</span>{" "}
+          <span className="text-terminal-green">{market?.volChange ?? ""}</span>
         </span>
         <span className="text-terminal-muted">│</span>
         <span>
           FEAR/GREED:{" "}
-          <span className="text-terminal-yellow">
-            {market.fearGreed} {market.fearGreedLabel}
-          </span>
+          {market ? (
+            <span className="text-terminal-yellow">
+              {market.fearGreed} {market.fearGreedLabel}
+            </span>
+          ) : (
+            <span className="text-terminal-muted">{dash}</span>
+          )}
         </span>
         <span className="ml-auto text-terminal-muted text-[10px]">
           {statusLabel}

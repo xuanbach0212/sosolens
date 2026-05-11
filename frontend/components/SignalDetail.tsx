@@ -100,24 +100,33 @@ export default function SignalDetail({ signal }: Props) {
         </div>
 
         {/* Top Tokens */}
-        <div>
-          <SectionHeader title="TOP TOKENS IN SECTOR" />
-          <div className="grid grid-cols-3 gap-1">
-            {signal.topTokens.map((token) => (
-              <div key={token.symbol} className="bg-terminal-panel border border-terminal-border rounded px-2 py-1">
-                <div className="text-[10px] font-bold text-terminal-text">{token.symbol}</div>
-                <div className="text-[10px] text-terminal-muted">{token.price}</div>
-                <div
-                  className={`text-[10px] ${
-                    token.positive ? "text-terminal-green" : "text-terminal-red"
-                  }`}
-                >
-                  {token.change}
-                </div>
-              </div>
-            ))}
+        {signal.topTokens.length > 0 && (
+          <div>
+            <SectionHeader title="TOP TOKENS IN SECTOR" />
+            <div className="grid grid-cols-3 gap-1">
+              {signal.topTokens.map((token) => {
+                const hasPrice = token.price && token.price !== "—";
+                return (
+                  <div key={token.symbol} className="bg-terminal-panel border border-terminal-border rounded px-2 py-1">
+                    <div className="text-[10px] font-bold text-terminal-text">{token.symbol}</div>
+                    {hasPrice && (
+                      <>
+                        <div className="text-[10px] text-terminal-muted">{token.price}</div>
+                        <div
+                          className={`text-[10px] ${
+                            token.positive ? "text-terminal-green" : "text-terminal-red"
+                          }`}
+                        >
+                          {token.change}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Past Signals */}
         <div>
@@ -155,21 +164,27 @@ export default function SignalDetail({ signal }: Props) {
         </div>
 
         {/* SoDEX Trade Button */}
-        <div>
-          <div className="border border-terminal-border rounded p-3 bg-terminal-panel">
-            <div className="text-[10px] font-bold text-terminal-yellow mb-2">⚡ Trade on SoDEX</div>
-            <div className="text-[10px] text-terminal-text mb-0.5">{signal.sodexPair}</div>
-            <div className="text-[10px] text-terminal-muted mb-0.5">
-              Slippage {signal.sodexSlippage}
+        {signal.sodexPair && signal.sodexPair !== "—" && (
+          <div>
+            <div className="border border-terminal-border rounded p-3 bg-terminal-panel">
+              <div className="text-[10px] font-bold text-terminal-yellow mb-2">⚡ Trade on SoDEX</div>
+              <div className="text-[10px] text-terminal-text mb-0.5">{signal.sodexPair}</div>
+              {signal.sodexSlippage && (
+                <div className="text-[10px] text-terminal-muted mb-0.5">
+                  Slippage {signal.sodexSlippage}
+                </div>
+              )}
+              {signal.sodexEstOutput && signal.sodexEstOutput !== "—" && (
+                <div className="text-[10px] text-terminal-muted mb-3">
+                  Est. output: {signal.sodexEstOutput}
+                </div>
+              )}
+              <button className="w-full border border-terminal-yellow text-terminal-yellow text-[10px] py-1.5 rounded hover:bg-terminal-yellow hover:text-terminal-bg transition-colors tracking-widest font-bold">
+                [ OPEN SODEX ]
+              </button>
             </div>
-            <div className="text-[10px] text-terminal-muted mb-3">
-              Est. output: {signal.sodexEstOutput}
-            </div>
-            <button className="w-full border border-terminal-yellow text-terminal-yellow text-[10px] py-1.5 rounded hover:bg-terminal-yellow hover:text-terminal-bg transition-colors tracking-widest font-bold">
-              [ OPEN SODEX ]
-            </button>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

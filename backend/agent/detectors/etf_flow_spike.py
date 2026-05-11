@@ -1,6 +1,7 @@
 import logging
 from backend.services.sosovalue import get_client
 from backend.services.etf import fetch_etf_total_flow
+from backend.services.currency import fetch_btc_eth_prices
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +19,8 @@ class ETFFlowSpikeDetector:
         except Exception as exc:
             logger.warning("[etf_spike] fetch failed: %s", exc)
             return []
+
+        btc_token, eth_token = await fetch_btc_eth_prices(client)
 
         if total > STRONG_BUY_USD:
             sig_type = "BUY"
@@ -45,10 +48,7 @@ class ETFFlowSpikeDetector:
                 {"name": "Flow vs Baseline", "value": f"{ratio:.1f}x avg", "signal": "🟢" if ratio > 2 else "🟡"},
                 {"name": "Signal Tier", "value": sig_type, "signal": "🟢" if sig_type == "BUY" else "🟡"},
             ],
-            "topTokens": [
-                {"symbol": "BTC", "price": "—", "change": "—", "positive": True},
-                {"symbol": "ETH", "price": "—", "change": "—", "positive": True},
-            ],
+            "topTokens": [btc_token, eth_token],
             "pastSignals": [],
             "accuracy": 0,
             "sodexPair": "BUY BTC/USDC" if sig_type == "BUY" else "—",

@@ -10,8 +10,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from backend.events import subscribe, unsubscribe
 from backend.data.hardcoded import (
-    SIGNALS,
-    SIGNAL_STATS,
     MARKET_STATUS,
     SECTOR_FLOWS,
     ETF_FLOWS,
@@ -40,8 +38,7 @@ app = FastAPI(title="SoSoAlpha API", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://100.67.197.22:3000", "http://192.168.1.162:3000"],
-    allow_credentials=True,
+    allow_origins=["*"],
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
@@ -49,8 +46,7 @@ app.add_middleware(
 
 def _compute_stats(payloads: list[dict]) -> dict:
     total = len(payloads)
-    # accuracy is historical win-rate; not tracked yet — keep hardcoded baseline
-    return {"today": total, "thisWeek": total, "accuracy": SIGNAL_STATS["accuracy"]}
+    return {"today": total, "thisWeek": total, "accuracy": 0}
 
 
 @app.get("/api/signals")
@@ -70,7 +66,7 @@ def get_signals() -> dict:
             payloads.append(p)
     if payloads:
         return {"signals": payloads, "stats": _compute_stats(payloads)}
-    return {"signals": SIGNALS, "stats": SIGNAL_STATS}
+    return {"signals": [], "stats": {"today": 0, "thisWeek": 0, "accuracy": 0}}
 
 
 @app.get("/api/market")

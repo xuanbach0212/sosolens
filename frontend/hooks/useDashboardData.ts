@@ -12,18 +12,6 @@ import type {
   VcActivity,
   NewsHeadline,
 } from '@/types';
-import {
-  signals as fallbackSignals,
-  signalStats as fallbackStats,
-  marketStatus as fallbackMarket,
-  sectorFlows as fallbackSectorFlows,
-  etfFlows as fallbackEtfFlows,
-  macroStatus as fallbackMacro,
-  btcTreasuries as fallbackBtcTreasuries,
-  vcActivity as fallbackVcActivity,
-  aiBriefing as fallbackAiBriefing,
-  newsHeadlines as fallbackNewsHeadlines,
-} from '@/data/dummy';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 const REFRESH_INTERVAL_MS = 60_000;
@@ -31,7 +19,7 @@ const REFRESH_INTERVAL_MS = 60_000;
 export interface DashboardData {
   signals: Signal[];
   stats: SignalStats;
-  market: MarketStatus;
+  market: MarketStatus | null;
   sectorFlows: SectorFlow[];
   etfFlows: EtfFlow[];
   macroStatus: MacroItem[];
@@ -47,17 +35,17 @@ export interface DashboardData {
 }
 
 export function useDashboardData(): DashboardData {
-  const [signals, setSignals] = useState<Signal[]>(fallbackSignals);
-  const [stats, setStats] = useState<SignalStats>(fallbackStats);
-  const [market, setMarket] = useState<MarketStatus>(fallbackMarket);
-  const [sectorFlows, setSectorFlows] = useState<SectorFlow[]>(fallbackSectorFlows);
-  const [etfFlows, setEtfFlows] = useState<EtfFlow[]>(fallbackEtfFlows);
-  const [macroStatus, setMacroStatus] = useState<MacroItem[]>(fallbackMacro);
-  const [btcTreasuries, setBtcTreasuries] = useState<BtcTreasury[]>(fallbackBtcTreasuries);
-  const [vcActivity, setVcActivity] = useState<VcActivity[]>(fallbackVcActivity);
-  const [aiBriefing, setAiBriefing] = useState<string[]>(fallbackAiBriefing);
-  const [newsHeadlines, setNewsHeadlines] = useState<NewsHeadline[]>(fallbackNewsHeadlines);
-  const [isLoading, setIsLoading] = useState(false);
+  const [signals, setSignals] = useState<Signal[]>([]);
+  const [stats, setStats] = useState<SignalStats>({ today: 0, thisWeek: 0, accuracy: 0 });
+  const [market, setMarket] = useState<MarketStatus | null>(null);
+  const [sectorFlows, setSectorFlows] = useState<SectorFlow[]>([]);
+  const [etfFlows, setEtfFlows] = useState<EtfFlow[]>([]);
+  const [macroStatus, setMacroStatus] = useState<MacroItem[]>([]);
+  const [btcTreasuries, setBtcTreasuries] = useState<BtcTreasury[]>([]);
+  const [vcActivity, setVcActivity] = useState<VcActivity[]>([]);
+  const [aiBriefing, setAiBriefing] = useState<string[]>([]);
+  const [newsHeadlines, setNewsHeadlines] = useState<NewsHeadline[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -86,16 +74,16 @@ export function useDashboardData(): DashboardData {
           macRes.json(), btcRes.json(), vcRes.json(), newsRes.json(),
         ]);
 
-      setSignals(sigData.signals);
-      setStats(sigData.stats);
-      setMarket(mktData.market);
-      setSectorFlows(secData.sectorFlows);
-      setEtfFlows(etfData.etfFlows);
-      setMacroStatus(macData.macroStatus);
-      setBtcTreasuries(btcData.btcTreasuries);
-      setVcActivity(vcData.vcActivity);
-      setAiBriefing(newsData.aiBriefing);
-      setNewsHeadlines(newsData.newsHeadlines);
+      setSignals(sigData.signals ?? []);
+      setStats(sigData.stats ?? { today: 0, thisWeek: 0, accuracy: 0 });
+      setMarket(mktData.market ?? null);
+      setSectorFlows(secData.sectorFlows ?? []);
+      setEtfFlows(etfData.etfFlows ?? []);
+      setMacroStatus(macData.macroStatus ?? []);
+      setBtcTreasuries(btcData.btcTreasuries ?? []);
+      setVcActivity(vcData.vcActivity ?? []);
+      setAiBriefing(newsData.aiBriefing ?? []);
+      setNewsHeadlines(newsData.newsHeadlines ?? []);
       setLastUpdated(new Date());
     } catch {
       setIsError(true);
