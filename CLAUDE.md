@@ -148,9 +148,9 @@ NEXT_PUBLIC_CHAIN_ID=   # (Wave 2)
 |--------|------|---------|
 | GET | `/api/signals` | `{signals: Signal[], stats: SignalStats}` — from DB if populated, else hardcoded |
 | GET | `/api/market` | `{market: MarketStatus}` |
-| GET | `/api/sector-flows` | `{sectorFlows: SectorFlow[]}` |
+| GET | `/api/sector-flows` | `{sectorFlows: SectorFlow[]}` — live from SoSoValue, fallback hardcoded |
 | GET | `/api/etf-flows` | `{etfFlows: EtfFlow[]}` — live from SoSoValue, fallback hardcoded |
-| GET | `/api/macro` | `{macroStatus: MacroItem[]}` |
+| GET | `/api/macro` | `{macroStatus: MacroItem[], riskEnvironment: string, upcomingEvents: MacroEvent[], macroStatusDetail: dict}` |
 | GET | `/api/btc-treasuries` | `{btcTreasuries: BtcTreasury[]}` |
 | GET | `/api/vc-activity` | `{vcActivity: VcActivity[]}` |
 | GET | `/api/news` | `{aiBriefing: string[], newsHeadlines: NewsHeadline[]}` |
@@ -173,22 +173,28 @@ The runner (`runner.py`) iterates `DETECTORS`, calls `run()`, pipes each raw sig
 
 ## Wave 1 Progress (due 2026-05-18)
 
-**Done (14/24):**
+**Done (24/24 — Wave 1 complete):**
 - #1 Frontend scaffold + terminal layout
 - #2 Python agent scaffold (models, DB, runner, scheduler, detector registry)
 - #3 SoSoValue API client (auth, rate limit, retry)
 - #4 ETF API normalization + `/api/etf-flows` live data ✅
-- #11 ETF flow spike detector (BUY/WATCH/AVOID thresholds) ✅
+- #5 Sector/Index API normalization + `/api/sector-flows` live data ✅
+- #6 BTC Treasuries API + `/api/btc-treasuries` live ✅
+- #7 Macro API + `/api/macro` live ✅
+- #8 News/Feeds API + `/api/news` live ✅
+- #9 Fundraising API + `/api/vc-activity` live ✅
+- #10 Currency/Pairs API + `/api/market` live ✅
+- #11 ETF flow spike detector ✅
+- #12 Sector rotation divergence detector ✅
+- #13 Macro risk-on/risk-off classifier ✅
+- #14 Signal scorer (confidence % + risk level) ✅
+- #15 AI explanation generator (Claude Haiku) ✅
+- #16 Signal persistence + hourly scheduler (APScheduler, SQLite upsert, live stats) ✅
 - #17 REST API (all 8 endpoints)
 - #18–#24 All frontend panels + live polling hook
 
-**Remaining (10/24):**
-- #5–#10 API modules (Sector, BTC Treasuries, Macro, News, Fundraising, Currency)
-- #12 Signal detector: sector rotation divergence
-- #13 Signal detector: macro risk-on / risk-off
-- #14 Real scorer (confidence % + risk)
-- #15 AI explanation generator (Claude Haiku prompt)
-- #16 Signal persistence review
+**Remaining before submission:**
+- #36 Remove dummy data — connect all UI panels to live BE endpoints
 
 ---
 

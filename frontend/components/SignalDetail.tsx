@@ -2,12 +2,14 @@ import type { Signal, SignalType } from "@/types";
 
 const TYPE_COLOR: Record<SignalType, string> = {
   BUY: "text-terminal-green",
+  SELL: "text-terminal-red",
   WATCH: "text-terminal-yellow",
   AVOID: "text-terminal-red",
 };
 
 const TYPE_BAR_COLOR: Record<SignalType, string> = {
   BUY: "bg-terminal-green",
+  SELL: "bg-terminal-red",
   WATCH: "bg-terminal-yellow",
   AVOID: "bg-terminal-red",
 };
@@ -44,8 +46,7 @@ export default function SignalDetail({ signal }: Props) {
         {/* Header */}
         <div>
           <div className={`text-sm font-bold ${typeColor}`}>
-            {signal.type === "BUY" ? "🟢" : signal.type === "WATCH" ? "🟡" : "🔴"}{" "}
-            {signal.type} SIGNAL — {signal.sector.toUpperCase()}
+            {signal.type === "BUY" ? "🟢" : signal.type === "WATCH" ? "🟡" : "🔴"} {signal.type} SIGNAL — {signal.sector.toUpperCase()}
           </div>
           <div className="flex items-center gap-3 mt-2">
             <div className="flex-1">
@@ -99,70 +100,91 @@ export default function SignalDetail({ signal }: Props) {
         </div>
 
         {/* Top Tokens */}
-        <div>
-          <SectionHeader title="TOP TOKENS IN SECTOR" />
-          <div className="grid grid-cols-3 gap-1">
-            {signal.topTokens.map((token) => (
-              <div key={token.symbol} className="bg-terminal-panel border border-terminal-border rounded px-2 py-1">
-                <div className="text-[10px] font-bold text-terminal-text">{token.symbol}</div>
-                <div className="text-[10px] text-terminal-muted">{token.price}</div>
-                <div
-                  className={`text-[10px] ${
-                    token.positive ? "text-terminal-green" : "text-terminal-red"
-                  }`}
-                >
-                  {token.change}
-                </div>
-              </div>
-            ))}
+        {signal.topTokens.length > 0 && (
+          <div>
+            <SectionHeader title="TOP TOKENS IN SECTOR" />
+            <div className="grid grid-cols-3 gap-1">
+              {signal.topTokens.map((token) => {
+                const hasPrice = token.price && token.price !== "—";
+                return (
+                  <div key={token.symbol} className="bg-terminal-panel border border-terminal-border rounded px-2 py-1">
+                    <div className="text-[10px] font-bold text-terminal-text">{token.symbol}</div>
+                    {hasPrice && (
+                      <>
+                        <div className="text-[10px] text-terminal-muted">{token.price}</div>
+                        <div
+                          className={`text-[10px] ${
+                            token.positive ? "text-terminal-green" : "text-terminal-red"
+                          }`}
+                        >
+                          {token.change}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Past Signals */}
         <div>
           <SectionHeader title="SIMILAR PAST SIGNALS" />
           <table className="w-full text-[10px]">
             <tbody>
-              {signal.pastSignals.map((past, i) => (
-                <tr key={i} className="border-b border-terminal-border">
-                  <td className="py-1 text-terminal-muted">{past.date}</td>
-                  <td className="py-1 text-terminal-text">{past.label}</td>
-                  <td
-                    className={`py-1 ${
-                      past.success ? "text-terminal-green" : "text-terminal-red"
-                    }`}
-                  >
-                    {past.result}
-                  </td>
-                  <td className="py-1 text-right">{past.success ? "✅" : "❌"}</td>
+              {signal.pastSignals.length === 0 ? (
+                <tr>
+                  <td className="py-1 text-terminal-muted italic" colSpan={4}>No history yet</td>
                 </tr>
-              ))}
+              ) : (
+                signal.pastSignals.map((past, i) => (
+                  <tr key={i} className="border-b border-terminal-border">
+                    <td className="py-1 text-terminal-muted">{past.date}</td>
+                    <td className="py-1 text-terminal-text">{past.label}</td>
+                    <td
+                      className={`py-1 ${
+                        past.success ? "text-terminal-green" : "text-terminal-red"
+                      }`}
+                    >
+                      {past.result}
+                    </td>
+                    <td className="py-1 text-right">{past.success ? "✅" : "❌"}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
           <div className="text-[10px] text-terminal-muted mt-1">
             Signal accuracy:{" "}
             <span className={signal.accuracy >= 70 ? "text-terminal-green" : "text-terminal-yellow"}>
-              {signal.accuracy}%
+              {signal.accuracy > 0 ? `${signal.accuracy}%` : "—"}
             </span>
           </div>
         </div>
 
         {/* SoDEX Trade Button */}
-        <div>
-          <div className="border border-terminal-border rounded p-3 bg-terminal-panel">
-            <div className="text-[10px] font-bold text-terminal-yellow mb-2">⚡ Trade on SoDEX</div>
-            <div className="text-[10px] text-terminal-text mb-0.5">{signal.sodexPair}</div>
-            <div className="text-[10px] text-terminal-muted mb-0.5">
-              Slippage {signal.sodexSlippage}
+        {signal.sodexPair && signal.sodexPair !== "—" && (
+          <div>
+            <div className="border border-terminal-border rounded p-3 bg-terminal-panel">
+              <div className="text-[10px] font-bold text-terminal-yellow mb-2">⚡ Trade on SoDEX</div>
+              <div className="text-[10px] text-terminal-text mb-0.5">{signal.sodexPair}</div>
+              {signal.sodexSlippage && (
+                <div className="text-[10px] text-terminal-muted mb-0.5">
+                  Slippage {signal.sodexSlippage}
+                </div>
+              )}
+              {signal.sodexEstOutput && signal.sodexEstOutput !== "—" && (
+                <div className="text-[10px] text-terminal-muted mb-3">
+                  Est. output: {signal.sodexEstOutput}
+                </div>
+              )}
+              <button className="w-full border border-terminal-yellow text-terminal-yellow text-[10px] py-1.5 rounded hover:bg-terminal-yellow hover:text-terminal-bg transition-colors tracking-widest font-bold">
+                [ OPEN SODEX ]
+              </button>
             </div>
-            <div className="text-[10px] text-terminal-muted mb-3">
-              Est. output: {signal.sodexEstOutput}
-            </div>
-            <button className="w-full border border-terminal-yellow text-terminal-yellow text-[10px] py-1.5 rounded hover:bg-terminal-yellow hover:text-terminal-bg transition-colors tracking-widest font-bold">
-              [ OPEN SODEX ]
-            </button>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

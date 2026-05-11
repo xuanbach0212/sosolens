@@ -22,20 +22,13 @@ export default function Page() {
     newsHeadlines,
     isLoading,
     isError,
+    isConnected,
     lastUpdated,
   } = useDashboardData();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const effectiveId = selectedId ?? signals[0]?.id ?? null;
   const selectedSignal = signals.find((s) => s.id === effectiveId) ?? signals[0];
-
-  if (!selectedSignal) {
-    return (
-      <div className="h-screen flex items-center justify-center text-terminal-muted text-xs tracking-widest">
-        LOADING...
-      </div>
-    );
-  }
 
   return (
     <div
@@ -45,14 +38,24 @@ export default function Page() {
         gridTemplateColumns: "220px 1fr 260px",
       }}
     >
-      <TopBar market={market} isLoading={isLoading} isError={isError} lastUpdated={lastUpdated} />
+      <TopBar market={market} isLoading={isLoading} isError={isError} isConnected={isConnected} lastUpdated={lastUpdated} />
       <SignalFeed
         signals={signals}
-        selectedId={effectiveId ?? signals[0].id}
+        selectedId={effectiveId ?? ""}
         onSelect={setSelectedId}
         stats={stats}
+        isLoading={isLoading}
       />
-      <SignalDetail signal={selectedSignal} />
+      {selectedSignal ? (
+        <SignalDetail signal={selectedSignal} />
+      ) : (
+        <div
+          className="border-r border-terminal-border flex items-center justify-center text-terminal-muted text-[10px] tracking-widest"
+          style={{ gridColumn: "2", gridRow: "2" }}
+        >
+          {isLoading ? "CONNECTING TO AGENT..." : "AGENT RUNNING · FIRST SIGNALS IN ~60s"}
+        </div>
+      )}
       <MarketIntelligence
         sectorFlows={sectorFlows}
         etfFlows={etfFlows}
@@ -60,7 +63,7 @@ export default function Page() {
         btcTreasuries={btcTreasuries}
         vcActivity={vcActivity}
       />
-      <BottomBar briefing={aiBriefing} news={newsHeadlines} />
+      <BottomBar briefing={aiBriefing} news={newsHeadlines} lastUpdated={lastUpdated} />
     </div>
   );
 }

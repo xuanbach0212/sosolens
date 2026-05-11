@@ -1,9 +1,15 @@
-from contextlib import asynccontextmanager
+import asyncio
+import json
+from contextlib import asynccontextmanager, suppress
+from datetime import datetime, timezone
+from dotenv import load_dotenv
+load_dotenv("backend/.env")
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+from backend.events import subscribe, unsubscribe
 from backend.data.hardcoded import (
-    SIGNALS,
-    SIGNAL_STATS,
     MARKET_STATUS,
     SECTOR_FLOWS,
     ETF_FLOWS,
@@ -15,85 +21,137 @@ from backend.data.hardcoded import (
 )
 from backend.agent.db import init_db, get_db
 from backend.agent.models import Signal
-from backend.agent.runner import run_agent, start_scheduler
-from backend.services.etf import fetch_etf_snapshot
-from backend.services.sector import fetch_sector_flows
-from backend.services.sosovalue import get_client
+from backend.agent.runner import run_agent, start_scheduler, build_full_snapshot
+import backend.cache as cache
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
     scheduler = start_scheduler()
-    yield
-    scheduler.shutdown()
+    bootstrap_task = asyncio.create_task(run_agent())  # populate cache + DB immediately; scheduler handles hourly after
+    try:
+        yield
+    finally:
+        if not bootstrap_task.done():
+            bootstrap_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await bootstrap_task
+        scheduler.shutdown()
 
 
 app = FastAPI(title="SoSoAlpha API", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
-    allow_credentials=True,
+    allow_origins=["*"],
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
 
+def _compute_stats(payloads: list[dict]) -> dict:
+    total = len(payloads)
+    return {"today": total, "thisWeek": total, "accuracy": 0}
+
+
+_MAX_SIGNAL_AGE_HOURS = 25
+
+
 @app.get("/api/signals")
 def get_signals() -> dict:
     with get_db() as db:
-        db_signals = db.query(Signal).all()
-    if db_signals:
-        return {"signals": [s.payload for s in db_signals], "stats": SIGNAL_STATS}
-    return {"signals": SIGNALS, "stats": SIGNAL_STATS}
+        from sqlalchemy import select
+        rows = db.scalars(select(Signal)).all()
+        now = datetime.now(timezone.utc)
+        payloads = []
+        for s in rows:
+            updated = s.updated_at
+            if updated.tzinfo is None:
+                updated = updated.replace(tzinfo=timezone.utc)
+            delta = now - updated
+            if delta.total_seconds() > _MAX_SIGNAL_AGE_HOURS * 3600:
+                continue  # skip stale signals
+            hours = int(delta.total_seconds() // 3600)
+            p = dict(s.payload)
+            p["timeAgo"] = f"{hours}h" if hours < 24 else f"{delta.days}d"
+            payloads.append(p)
+    if payloads:
+        return {"signals": payloads, "stats": _compute_stats(payloads)}
+    return {"signals": [], "stats": {"today": 0, "thisWeek": 0, "accuracy": 0}}
 
 
 @app.get("/api/market")
 def get_market() -> dict:
-    return {"market": MARKET_STATUS}
+    return {"market": cache.get_or("market_status", MARKET_STATUS)}
 
 
 @app.get("/api/sector-flows")
-async def get_sector_flows() -> dict:
-    try:
-        data = await fetch_sector_flows(get_client())
-        return {"sectorFlows": data}
-    except Exception:
-        return {"sectorFlows": SECTOR_FLOWS}
+def get_sector_flows() -> dict:
+    return {"sectorFlows": cache.get_or("sector_flows", SECTOR_FLOWS)}
 
 
 @app.get("/api/etf-flows")
-async def get_etf_flows() -> dict:
-    try:
-        data = await fetch_etf_snapshot(get_client())
-        return {"etfFlows": data}
-    except Exception:
-        return {"etfFlows": ETF_FLOWS}
+def get_etf_flows() -> dict:
+    return {"etfFlows": cache.get_or("etf_flows", ETF_FLOWS)}
 
 
 @app.get("/api/macro")
 def get_macro() -> dict:
+    cached = cache.get("macro_status")
+    if isinstance(cached, dict) and "indicators" in cached:
+        return {
+            "macroStatus": cached.get("indicators") or MACRO_STATUS,
+            "riskEnvironment": cached.get("risk_environment", "neutral"),
+            "upcomingEvents": cached.get("upcoming_events", []),
+            "macroStatusDetail": cached.get("macro_status", {}),
+        }
     return {"macroStatus": MACRO_STATUS}
 
 
 @app.get("/api/btc-treasuries")
 def get_btc_treasuries() -> dict:
-    return {"btcTreasuries": BTC_TREASURIES}
+    return {"btcTreasuries": cache.get_or("btc_treasuries", BTC_TREASURIES)}
 
 
 @app.get("/api/vc-activity")
 def get_vc_activity() -> dict:
-    return {"vcActivity": VC_ACTIVITY}
+    return {"vcActivity": cache.get_or("vc_activity", VC_ACTIVITY)}
 
 
 @app.get("/api/news")
 def get_news() -> dict:
+    cached = cache.get("news")
+    if isinstance(cached, dict):
+        return {"aiBriefing": cached.get("briefing", []), "newsHeadlines": cached.get("headlines", [])}
     return {"aiBriefing": AI_BRIEFING, "newsHeadlines": NEWS_HEADLINES}
 
 
 @app.post("/api/agent/run")
 async def trigger_agent_run() -> dict:
-    """Debug endpoint — manually trigger the agent loop."""
+    """Manually trigger the agent loop (runs detectors + refreshes panel cache)."""
     await run_agent()
     return {"status": "ok"}
+
+
+@app.get("/api/stream")
+async def stream():
+    q = subscribe()
+
+    async def gen():
+        try:
+            yield f"data: {json.dumps(build_full_snapshot())}\n\n"
+            while True:
+                try:
+                    data = await asyncio.wait_for(q.get(), timeout=30)
+                    yield f"data: {json.dumps(data)}\n\n"
+                except asyncio.TimeoutError:
+                    yield ": heartbeat\n\n"
+        finally:
+            unsubscribe(q)
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

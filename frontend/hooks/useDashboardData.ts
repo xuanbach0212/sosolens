@@ -12,18 +12,6 @@ import type {
   VcActivity,
   NewsHeadline,
 } from '@/types';
-import {
-  signals as fallbackSignals,
-  signalStats as fallbackStats,
-  marketStatus as fallbackMarket,
-  sectorFlows as fallbackSectorFlows,
-  etfFlows as fallbackEtfFlows,
-  macroStatus as fallbackMacro,
-  btcTreasuries as fallbackBtcTreasuries,
-  vcActivity as fallbackVcActivity,
-  aiBriefing as fallbackAiBriefing,
-  newsHeadlines as fallbackNewsHeadlines,
-} from '@/data/dummy';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 const REFRESH_INTERVAL_MS = 60_000;
@@ -31,7 +19,7 @@ const REFRESH_INTERVAL_MS = 60_000;
 export interface DashboardData {
   signals: Signal[];
   stats: SignalStats;
-  market: MarketStatus;
+  market: MarketStatus | null;
   sectorFlows: SectorFlow[];
   etfFlows: EtfFlow[];
   macroStatus: MacroItem[];
@@ -41,23 +29,25 @@ export interface DashboardData {
   newsHeadlines: NewsHeadline[];
   isLoading: boolean;
   isError: boolean;
+  isConnected: boolean;
   lastUpdated: Date | null;
   refresh: () => void;
 }
 
 export function useDashboardData(): DashboardData {
-  const [signals, setSignals] = useState<Signal[]>(fallbackSignals);
-  const [stats, setStats] = useState<SignalStats>(fallbackStats);
-  const [market, setMarket] = useState<MarketStatus>(fallbackMarket);
-  const [sectorFlows, setSectorFlows] = useState<SectorFlow[]>(fallbackSectorFlows);
-  const [etfFlows, setEtfFlows] = useState<EtfFlow[]>(fallbackEtfFlows);
-  const [macroStatus, setMacroStatus] = useState<MacroItem[]>(fallbackMacro);
-  const [btcTreasuries, setBtcTreasuries] = useState<BtcTreasury[]>(fallbackBtcTreasuries);
-  const [vcActivity, setVcActivity] = useState<VcActivity[]>(fallbackVcActivity);
-  const [aiBriefing, setAiBriefing] = useState<string[]>(fallbackAiBriefing);
-  const [newsHeadlines, setNewsHeadlines] = useState<NewsHeadline[]>(fallbackNewsHeadlines);
-  const [isLoading, setIsLoading] = useState(false);
+  const [signals, setSignals] = useState<Signal[]>([]);
+  const [stats, setStats] = useState<SignalStats>({ today: 0, thisWeek: 0, accuracy: 0 });
+  const [market, setMarket] = useState<MarketStatus | null>(null);
+  const [sectorFlows, setSectorFlows] = useState<SectorFlow[]>([]);
+  const [etfFlows, setEtfFlows] = useState<EtfFlow[]>([]);
+  const [macroStatus, setMacroStatus] = useState<MacroItem[]>([]);
+  const [btcTreasuries, setBtcTreasuries] = useState<BtcTreasury[]>([]);
+  const [vcActivity, setVcActivity] = useState<VcActivity[]>([]);
+  const [aiBriefing, setAiBriefing] = useState<string[]>([]);
+  const [newsHeadlines, setNewsHeadlines] = useState<NewsHeadline[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const fetchAll = useCallback(async () => {
@@ -84,16 +74,16 @@ export function useDashboardData(): DashboardData {
           macRes.json(), btcRes.json(), vcRes.json(), newsRes.json(),
         ]);
 
-      setSignals(sigData.signals);
-      setStats(sigData.stats);
-      setMarket(mktData.market);
-      setSectorFlows(secData.sectorFlows);
-      setEtfFlows(etfData.etfFlows);
-      setMacroStatus(macData.macroStatus);
-      setBtcTreasuries(btcData.btcTreasuries);
-      setVcActivity(vcData.vcActivity);
-      setAiBriefing(newsData.aiBriefing);
-      setNewsHeadlines(newsData.newsHeadlines);
+      setSignals(sigData.signals ?? []);
+      setStats(sigData.stats ?? { today: 0, thisWeek: 0, accuracy: 0 });
+      setMarket(mktData.market ?? null);
+      setSectorFlows(secData.sectorFlows ?? []);
+      setEtfFlows(etfData.etfFlows ?? []);
+      setMacroStatus(macData.macroStatus ?? []);
+      setBtcTreasuries(btcData.btcTreasuries ?? []);
+      setVcActivity(vcData.vcActivity ?? []);
+      setAiBriefing(newsData.aiBriefing ?? []);
+      setNewsHeadlines(newsData.newsHeadlines ?? []);
       setLastUpdated(new Date());
     } catch {
       setIsError(true);
@@ -103,9 +93,48 @@ export function useDashboardData(): DashboardData {
   }, []);
 
   useEffect(() => {
-    fetchAll();
-    const id = setInterval(fetchAll, REFRESH_INTERVAL_MS);
-    return () => clearInterval(id);
+    let pollId: ReturnType<typeof setInterval> | null = null;
+    const es = new EventSource(`${API_BASE}/api/stream`);
+
+    es.onmessage = (e) => {
+      if (pollId !== null) {
+        clearInterval(pollId);
+        pollId = null;
+      }
+      let snap: Record<string, unknown>;
+      try {
+        snap = JSON.parse(e.data);
+      } catch {
+        return;
+      }
+      if (snap.signals) setSignals(snap.signals);
+      if (snap.stats) setStats(snap.stats);
+      if (snap.market) setMarket(snap.market);
+      if (snap.sectorFlows) setSectorFlows(snap.sectorFlows);
+      if (snap.etfFlows) setEtfFlows(snap.etfFlows);
+      if (snap.macroStatus) setMacroStatus(snap.macroStatus);
+      if (snap.btcTreasuries) setBtcTreasuries(snap.btcTreasuries);
+      if (snap.vcActivity) setVcActivity(snap.vcActivity);
+      if (snap.aiBriefing) setAiBriefing(snap.aiBriefing);
+      if (snap.newsHeadlines) setNewsHeadlines(snap.newsHeadlines);
+      setLastUpdated(new Date());
+      setIsConnected(true);
+      setIsLoading(false);
+      setIsError(false);
+    };
+
+    es.onerror = () => {
+      setIsConnected(false);
+      if (pollId === null) {
+        fetchAll();
+        pollId = setInterval(fetchAll, REFRESH_INTERVAL_MS);
+      }
+    };
+
+    return () => {
+      es.close();
+      if (pollId !== null) clearInterval(pollId);
+    };
   }, [fetchAll]);
 
   return {
@@ -121,6 +150,7 @@ export function useDashboardData(): DashboardData {
     newsHeadlines,
     isLoading,
     isError,
+    isConnected,
     lastUpdated,
     refresh: fetchAll,
   };

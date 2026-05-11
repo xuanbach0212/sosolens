@@ -50,21 +50,29 @@ class SoSoValueClient:
     async def close(self) -> None:
         await self._client.aclose()
 
-    async def get_etf_flows(self) -> Any:
-        return await self._get("/etf/market/snapshot")
+    async def get_etf_list(self, symbol: str, country_code: str = "US") -> Any:
+        return await self._get("/etfs", params={"symbol": symbol, "country_code": country_code})
 
-    async def get_sector_flows(self) -> Any:
-        return await self._get("/index/sectorCapitalFlow")
+    async def get_etf_snapshot(self, ticker: str) -> Any:
+        return await self._get(f"/etfs/{ticker}/market-snapshot")
+
+    async def get_index_list(self) -> Any:
+        return await self._get("/indices")
+
+    async def get_index_snapshot(self, ticker: str) -> Any:
+        return await self._get(f"/indices/{ticker}/market-snapshot")
+
+    async def get_macro_events(self) -> Any:
+        return await self._get("/macro/events")
 
     async def get_btc_treasuries(self) -> Any:
-        return await self._get("/btcTreasuries/corporateHoldings")
+        return await self._get("/btc-treasuries")
 
-    async def get_macro(self) -> Any:
-        return await self._get("/macro/indicators")
+    async def get_btc_treasury_history(self, ticker: str) -> Any:
+        return await self._get(f"/btc-treasuries/{ticker}/purchase-history")
 
-    async def get_news(self, currency: str | None = None) -> Any:
-        params = {"currency": currency} if currency else None
-        return await self._get("/feeds/hotNews", params=params)
+    async def get_news(self) -> Any:
+        return await self._get("/news/hot")
 
     async def get_fundraising(self) -> Any:
         return await self._get("/fundraising/recent")
@@ -72,8 +80,8 @@ class SoSoValueClient:
     async def get_etf_history(self, etf_id: str, days: int = 7) -> Any:
         return await self._get("/etf/market/history", params={"etfId": etf_id, "days": days})
 
-    async def get_prices(self, symbols: list[str]) -> Any:
-        return await self._get("/currency/market", params={"symbols": ",".join(symbols)})
+    async def get_currency_snapshot(self, currency_id: str) -> Any:
+        return await self._get(f"/currencies/{currency_id}/market-snapshot")
 
 
 _client: "SoSoValueClient | None" = None
