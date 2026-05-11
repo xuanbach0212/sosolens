@@ -1,6 +1,5 @@
 """Unit tests for backend/services/btc_treasuries.py"""
 import pytest
-from unittest.mock import AsyncMock
 from backend.services.btc_treasuries import fetch_btc_treasuries, _fmt_holdings, _fmt_change
 
 
@@ -17,27 +16,28 @@ async def test_fetch_btc_treasuries_returns_list(client):
 
 async def test_fetch_btc_treasuries_sorted_by_holdings_descending(client):
     result = await fetch_btc_treasuries(client)
-    # MicroStrategy (214246) should come before Marathon (40435)
+    # Strategy (214246 BTC) should come before MARA Holdings (40435 BTC)
     names = [r["company"] for r in result]
-    assert names.index("MicroStrategy") < names.index("Marathon")
+    assert names.index("Strategy") < names.index("MARA Holdings")
 
 
 async def test_fetch_btc_treasuries_limits_to_5(client):
+    tickers = [f"T{i}" for i in range(10)]
     client.get_btc_treasuries.return_value = {
-        "data": [
-            {"short_name": f"Company{i}", "total_holdings": i * 1000, "btc_change_7d": 0}
-            for i in range(10, 0, -1)
-        ]
+        "data": [{"ticker": t, "name": f"Company {t}", "list_location": "US"} for t in tickers]
     }
+    _hist = {t: {"data": [{"btc_holding": str(i * 1000), "btc_acq": "0", "date": "2026-01-01", "ticker": t, "acq_cost": "0", "avg_btc_cost": 0}]}
+             for i, t in enumerate(tickers)}
+    client.get_btc_treasury_history.side_effect = lambda t: _hist.get(t, {"data": []})
     result = await fetch_btc_treasuries(client)
     assert len(result) <= 5
 
 
 async def test_fetch_btc_treasuries_positive_weekly_change(client):
     result = await fetch_btc_treasuries(client)
-    microstrategy = next(r for r in result if r["company"] == "MicroStrategy")
-    assert microstrategy["positive"] is True
-    assert "+1,282" in microstrategy["weeklyChange"]
+    strategy = next(r for r in result if r["company"] == "Strategy")
+    assert strategy["positive"] is True
+    assert "+1,282" in strategy["weeklyChange"]
 
 
 async def test_fetch_btc_treasuries_negative_weekly_change(client):
@@ -48,9 +48,9 @@ async def test_fetch_btc_treasuries_negative_weekly_change(client):
 
 async def test_fetch_btc_treasuries_zero_change_is_none(client):
     result = await fetch_btc_treasuries(client)
-    marathon = next(r for r in result if r["company"] == "Marathon")
-    assert marathon["positive"] is None
-    assert "±0" in marathon["weeklyChange"]
+    mara = next(r for r in result if r["company"] == "MARA Holdings")
+    assert mara["positive"] is None
+    assert "±0" in mara["weeklyChange"]
 
 
 async def test_fetch_btc_treasuries_handles_empty_response(client):
@@ -61,6 +61,16 @@ async def test_fetch_btc_treasuries_handles_empty_response(client):
 
 async def test_fetch_btc_treasuries_handles_api_error(client):
     client.get_btc_treasuries.side_effect = Exception("API error")
+    result = await fetch_btc_treasuries(client)
+    assert result == []
+
+
+async def test_fetch_btc_treasuries_skips_ticker_with_empty_history(client):
+    client.get_btc_treasuries.return_value = {
+        "data": [{"ticker": "MSTR", "name": "Strategy", "list_location": "US"}]
+    }
+    client.get_btc_treasury_history.side_effect = None
+    client.get_btc_treasury_history.return_value = {"data": []}
     result = await fetch_btc_treasuries(client)
     assert result == []
 

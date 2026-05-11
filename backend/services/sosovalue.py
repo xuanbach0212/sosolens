@@ -66,11 +66,13 @@ class SoSoValueClient:
         return await self._get("/macro/events")
 
     async def get_btc_treasuries(self) -> Any:
-        return await self._get("/btcTreasuries/corporateHoldings")
+        return await self._get("/btc-treasuries")
 
-    async def get_news(self, currency: str | None = None) -> Any:
-        params = {"currency": currency} if currency else None
-        return await self._get("/feeds/hotNews", params=params)
+    async def get_btc_treasury_history(self, ticker: str) -> Any:
+        return await self._get(f"/btc-treasuries/{ticker}/purchase-history")
+
+    async def get_news(self) -> Any:
+        return await self._get("/news/hot")
 
     async def get_fundraising(self) -> Any:
         return await self._get("/fundraising/recent")

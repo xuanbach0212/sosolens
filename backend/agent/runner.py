@@ -46,7 +46,7 @@ async def _refresh_panel_cache() -> None:
     from backend.services.etf import fetch_etf_snapshot
     from backend.services.sector import fetch_sector_flows
     from backend.services.btc_treasuries import fetch_btc_treasuries
-    from backend.services.news import fetch_news_headlines, fetch_fundraising
+    from backend.services.news import fetch_news_headlines
     from backend.services.currency import fetch_market_status
     client = get_client()
     # Market status first — most visible data, fewest calls (2)
@@ -75,11 +75,10 @@ async def _refresh_panel_cache() -> None:
     except Exception as exc:
         logger.warning("[agent] cache: btc_treasuries failed: %s", exc)
     try:
-        briefing, headlines = await fetch_news_headlines(client)
+        briefing, headlines, vc = await fetch_news_headlines(client)
         if briefing or headlines:
             cache.set("news", {"briefing": briefing, "headlines": headlines})
             logger.info("[agent] cache: news updated")
-        vc = await fetch_fundraising(client)
         if vc:
             cache.set("vc_activity", vc)
             logger.info("[agent] cache: vc_activity updated")

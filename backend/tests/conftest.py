@@ -18,25 +18,41 @@ def mock_client():
     }
     client.get_btc_treasuries.return_value = {
         "data": [
-            {"short_name": "MicroStrategy", "total_holdings": 214246, "btc_change_7d": 1282},
-            {"short_name": "Marathon",      "total_holdings": 40435,  "btc_change_7d": 0},
-            {"short_name": "Tesla",         "total_holdings": 11509,  "btc_change_7d": -100},
+            {"ticker": "MSTR", "name": "Strategy",      "list_location": "United States"},
+            {"ticker": "MARA", "name": "MARA Holdings", "list_location": "United States"},
+            {"ticker": "TSLA", "name": "Tesla",         "list_location": "United States"},
         ]
     }
+    _history = {
+        "MSTR": {"data": [{"date": "2026-04-27", "ticker": "MSTR", "btc_holding": "214246", "btc_acq": "1282",  "acq_cost": "100000000", "avg_btc_cost": 0.09}]},
+        "MARA": {"data": [{"date": "2026-04-27", "ticker": "MARA", "btc_holding": "40435",  "btc_acq": "0",     "acq_cost": "0",         "avg_btc_cost": 0.0}]},
+        "TSLA": {"data": [{"date": "2026-04-27", "ticker": "TSLA", "btc_holding": "11509",  "btc_acq": "-100",  "acq_cost": "0",         "avg_btc_cost": 0.0}]},
+    }
+    client.get_btc_treasury_history.side_effect = lambda t: _history.get(t, {"data": []})
     client.get_news.return_value = {
-        "data": [
-            {"title": "BlackRock BTC ETF records $380M single-day inflow", "source_name": "Bloomberg"},
-            {"title": "Fed officials signal patience on rate cuts",         "source_name": "Reuters"},
-            {"title": "DeFi protocol raises $50M in new funding round",    "source_name": "The Block"},
-        ]
-    }
-    client.get_fundraising.return_value = {
-        "data": [
-            {"sector": "DeFi",    "amount_usd": 50_000_000},
-            {"sector": "DeFi",    "amount_usd": 10_000_000},
-            {"sector": "AI",      "amount_usd": 30_000_000},
-            {"sector": "RWA",     "amount_usd": 15_000_000},
-        ]
+        "data": {
+            "page": 1, "page_size": 20, "total": "10",
+            "list": [
+                {
+                    "id": "1",
+                    "title": "BlackRock BTC ETF records $380M single-day inflow",
+                    "content": "BlackRock ETF saw record inflows today.\n[Bloomberg]",
+                    "source_link": "", "release_time": "1000",
+                },
+                {
+                    "id": "2",
+                    "title": "Fed officials signal patience on rate cuts",
+                    "content": "The Federal Reserve signaled patience.\n[Reuters]",
+                    "source_link": "", "release_time": "1001",
+                },
+                {
+                    "id": "3",
+                    "title": "DeFi protocol raises $50 million in new funding round",
+                    "content": "A DeFi lending protocol raised $50 million in a Series B round backed by a16z.\n[The Block]",
+                    "source_link": "", "release_time": "1002",
+                },
+            ],
+        }
     }
     client.get_currency_snapshot.return_value = {
         "data": {
