@@ -89,6 +89,8 @@ async def fetch_news_headlines(client: SoSoValueClient) -> tuple[list[str], list
         logger.warning("[news] fetch failed: %s", exc)
         return [], [], []
 
+    if not isinstance(raw, dict):
+        return [], [], []
     items = raw.get("data", {}).get("list") or []
     if not isinstance(items, list) or not items:
         return [], [], []

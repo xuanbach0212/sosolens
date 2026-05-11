@@ -1,6 +1,6 @@
 import asyncio
 import json
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 load_dotenv("backend/.env")
@@ -29,9 +29,15 @@ import backend.cache as cache
 async def lifespan(app: FastAPI):
     init_db()
     scheduler = start_scheduler()
-    asyncio.create_task(run_agent())  # populate cache + DB immediately; scheduler handles hourly after
-    yield
-    scheduler.shutdown()
+    bootstrap_task = asyncio.create_task(run_agent())  # populate cache + DB immediately; scheduler handles hourly after
+    try:
+        yield
+    finally:
+        if not bootstrap_task.done():
+            bootstrap_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await bootstrap_task
+        scheduler.shutdown()
 
 
 app = FastAPI(title="SoSoAlpha API", version="0.1.0", lifespan=lifespan)
@@ -55,7 +61,8 @@ _MAX_SIGNAL_AGE_HOURS = 25
 @app.get("/api/signals")
 def get_signals() -> dict:
     with get_db() as db:
-        rows = db.query(Signal).all()
+        from sqlalchemy import select
+        rows = db.scalars(select(Signal)).all()
         now = datetime.now(timezone.utc)
         payloads = []
         for s in rows:
@@ -76,17 +83,17 @@ def get_signals() -> dict:
 
 @app.get("/api/market")
 def get_market() -> dict:
-    return {"market": cache.get("market_status") or MARKET_STATUS}
+    return {"market": cache.get_or("market_status", MARKET_STATUS)}
 
 
 @app.get("/api/sector-flows")
 def get_sector_flows() -> dict:
-    return {"sectorFlows": cache.get("sector_flows") or SECTOR_FLOWS}
+    return {"sectorFlows": cache.get_or("sector_flows", SECTOR_FLOWS)}
 
 
 @app.get("/api/etf-flows")
 def get_etf_flows() -> dict:
-    return {"etfFlows": cache.get("etf_flows") or ETF_FLOWS}
+    return {"etfFlows": cache.get_or("etf_flows", ETF_FLOWS)}
 
 
 @app.get("/api/macro")
@@ -99,23 +106,23 @@ def get_macro() -> dict:
             "upcomingEvents": cached.get("upcoming_events", []),
             "macroStatusDetail": cached.get("macro_status", {}),
         }
-    return {"macroStatus": cached or MACRO_STATUS}
+    return {"macroStatus": MACRO_STATUS}
 
 
 @app.get("/api/btc-treasuries")
 def get_btc_treasuries() -> dict:
-    return {"btcTreasuries": cache.get("btc_treasuries") or BTC_TREASURIES}
+    return {"btcTreasuries": cache.get_or("btc_treasuries", BTC_TREASURIES)}
 
 
 @app.get("/api/vc-activity")
 def get_vc_activity() -> dict:
-    return {"vcActivity": cache.get("vc_activity") or VC_ACTIVITY}
+    return {"vcActivity": cache.get_or("vc_activity", VC_ACTIVITY)}
 
 
 @app.get("/api/news")
 def get_news() -> dict:
     cached = cache.get("news")
-    if cached:
+    if isinstance(cached, dict):
         return {"aiBriefing": cached.get("briefing", []), "newsHeadlines": cached.get("headlines", [])}
     return {"aiBriefing": AI_BRIEFING, "newsHeadlines": NEWS_HEADLINES}
 

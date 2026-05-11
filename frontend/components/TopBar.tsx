@@ -12,7 +12,7 @@ export default function TopBar({ market, isLoading, isError, isConnected, lastUp
   const statusLabel = isError
     ? <span className="text-terminal-red">● RECONNECTING · POLLING FALLBACK</span>
     : isConnected && lastUpdated
-    ? <span className="text-terminal-green">● SSE LIVE · {lastUpdated.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })} UTC</span>
+    ? <span className="text-terminal-green">● SSE LIVE · {lastUpdated.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' })} UTC</span>
     : isLoading
     ? <span className="text-terminal-yellow">● CONNECTING...</span>
     : <span className="text-terminal-muted">● SOSOVALUE API</span>;

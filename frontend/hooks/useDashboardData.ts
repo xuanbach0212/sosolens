@@ -101,7 +101,12 @@ export function useDashboardData(): DashboardData {
         clearInterval(pollId);
         pollId = null;
       }
-      const snap = JSON.parse(e.data);
+      let snap: Record<string, unknown>;
+      try {
+        snap = JSON.parse(e.data);
+      } catch {
+        return;
+      }
       if (snap.signals) setSignals(snap.signals);
       if (snap.stats) setStats(snap.stats);
       if (snap.market) setMarket(snap.market);

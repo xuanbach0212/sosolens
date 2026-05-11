@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime, timezone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from sqlalchemy import select
 from backend.agent.db import get_db
 from backend.agent.detectors import DETECTORS
 from backend.agent.scorer import score_signal
@@ -28,7 +29,7 @@ async def _refresh_macro_cache() -> None:
     )
     client = get_client()
     try:
-        cache.set("macro_status", {
+        cache.put("macro_status", {
             "indicators": await fetch_macro_indicators(client),
             "macro_status": await get_macro_status(client),
             "upcoming_events": await get_upcoming_events(client, days=14),
@@ -51,37 +52,34 @@ async def _refresh_panel_cache() -> None:
     client = get_client()
     # Market status first — most visible data, fewest calls (2)
     try:
-        cache.set("market_status", await fetch_market_status(client))
+        cache.put("market_status", await fetch_market_status(client))
         logger.info("[agent] cache: market_status updated")
     except Exception as exc:
         logger.warning("[agent] cache: market_status failed: %s", exc)
     # ETF and sector: skip if detectors already populated cache this run
     if not cache.get("etf_flows"):
         try:
-            cache.set("etf_flows", await fetch_etf_snapshot(client))
+            cache.put("etf_flows", await fetch_etf_snapshot(client))
             logger.info("[agent] cache: etf_flows updated")
         except Exception as exc:
             logger.warning("[agent] cache: etf_flows failed: %s", exc)
     if not cache.get("sector_flows"):
         try:
-            cache.set("sector_flows", await fetch_sector_flows(client))
+            cache.put("sector_flows", await fetch_sector_flows(client))
             logger.info("[agent] cache: sector_flows updated")
         except Exception as exc:
             logger.warning("[agent] cache: sector_flows failed: %s", exc)
     await _refresh_macro_cache()
     try:
-        cache.set("btc_treasuries", await fetch_btc_treasuries(client))
+        cache.put("btc_treasuries", await fetch_btc_treasuries(client))
         logger.info("[agent] cache: btc_treasuries updated")
     except Exception as exc:
         logger.warning("[agent] cache: btc_treasuries failed: %s", exc)
     try:
         briefing, headlines, vc = await fetch_news_headlines(client)
-        if briefing or headlines:
-            cache.set("news", {"briefing": briefing, "headlines": headlines})
-            logger.info("[agent] cache: news updated")
-        if vc:
-            cache.set("vc_activity", vc)
-            logger.info("[agent] cache: vc_activity updated")
+        cache.put("news", {"briefing": briefing or [], "headlines": headlines or []})
+        cache.put("vc_activity", vc if vc is not None else [])
+        logger.info("[agent] cache: news+vc_activity updated")
     except Exception as exc:
         logger.warning("[agent] cache: news/vc_activity failed: %s", exc)
 
@@ -91,7 +89,7 @@ _MAX_SIGNAL_AGE_HOURS = 25
 
 def build_full_snapshot() -> dict:
     with get_db() as db:
-        rows = db.query(Signal).all()
+        rows = db.scalars(select(Signal)).all()
         now = datetime.now(timezone.utc)
         payloads = []
         for s in rows:
@@ -123,19 +121,19 @@ def build_full_snapshot() -> dict:
     cached_news = cache.get("news")
     news = (
         {"aiBriefing": cached_news.get("briefing", []), "newsHeadlines": cached_news.get("headlines", [])}
-        if cached_news
+        if isinstance(cached_news, dict)
         else {"aiBriefing": AI_BRIEFING, "newsHeadlines": NEWS_HEADLINES}
     )
 
     return {
         "signals": signals,
         "stats": stats,
-        "market": cache.get("market_status") or MARKET_STATUS,
-        "sectorFlows": cache.get("sector_flows") or SECTOR_FLOWS,
-        "etfFlows": cache.get("etf_flows") or ETF_FLOWS,
+        "market": cache.get_or("market_status", MARKET_STATUS),
+        "sectorFlows": cache.get_or("sector_flows", SECTOR_FLOWS),
+        "etfFlows": cache.get_or("etf_flows", ETF_FLOWS),
         **macro,
-        "btcTreasuries": cache.get("btc_treasuries") or BTC_TREASURIES,
-        "vcActivity": cache.get("vc_activity") or VC_ACTIVITY,
+        "btcTreasuries": cache.get_or("btc_treasuries", BTC_TREASURIES),
+        "vcActivity": cache.get_or("vc_activity", VC_ACTIVITY),
         **news,
     }
 
@@ -143,6 +141,7 @@ def build_full_snapshot() -> dict:
 async def run_agent() -> None:
     logger.info(f"[agent] run_agent: {len(DETECTORS)} detectors loaded")
     if not DETECTORS:
+        await _refresh_panel_cache()
         logger.info("[agent] No detectors registered — nothing to do")
         return
 

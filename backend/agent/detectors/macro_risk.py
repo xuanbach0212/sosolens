@@ -20,11 +20,8 @@ class MacroRiskDetector:
         if not events:
             return []
 
-        nearest_high = None
-        for ev in events:
-            if ev["high_impact"]:
-                nearest_high = ev
-                break
+        high_events = [ev for ev in events if ev["high_impact"]]
+        nearest_high = min(high_events, key=lambda ev: ev["days_until"]) if high_events else None
 
         if nearest_high is None:
             sig_type = "BUY"
@@ -32,12 +29,15 @@ class MacroRiskDetector:
         elif nearest_high["days_until"] <= AVOID_DAYS:
             sig_type = "AVOID"
             label = f"High-impact event imminent: {', '.join(nearest_high['events'][:2])}"
-        else:
+        elif nearest_high["days_until"] <= WATCH_DAYS:
             sig_type = "WATCH"
             label = (
                 f"High-impact event in {nearest_high['days_until']}d: "
                 f"{', '.join(nearest_high['events'][:2])}"
             )
+        else:
+            sig_type = "BUY"
+            label = f"Next high-impact event in {nearest_high['days_until']}d"
 
         data_sources = []
         for ev in events[:5]:

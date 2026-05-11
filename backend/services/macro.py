@@ -40,6 +40,7 @@ async def fetch_macro_events(client: SoSoValueClient) -> list[dict]:
                 "events": events,
                 "high_impact": _is_high_impact(events),
             })
+        result.sort(key=lambda e: e["days_until"])
         return result
     except Exception as exc:
         logger.warning("[macro] fetch failed: %s", exc)

@@ -18,10 +18,10 @@ class ETFFlowSpikeDetector:
         try:
             client = get_client()
             snapshot, total = await fetch_etf_data(client)
-            cache.set("etf_flows", snapshot)
         except Exception as exc:
             logger.warning("[etf_spike] fetch failed: %s", exc)
             return []
+        cache.put("etf_flows", snapshot)
 
         btc_token, eth_token = await fetch_btc_eth_prices(client)
 
@@ -50,8 +50,8 @@ class ETFFlowSpikeDetector:
             "timeAgo": "0h",
             "dataSources": [
                 {"name": "ETF Net Inflow (24h)", "value": _fmt(total), "signal": flow_signal, "arrow": flow_arrow},
-                {"name": "Flow vs Baseline", "value": f"{ratio:.1f}x avg", "signal": "🟢" if ratio > 2 else "🟡"},
-                {"name": "Signal Tier", "value": sig_type, "signal": "🟢" if sig_type == "BUY" else "🟡"},
+                {"name": "Flow vs Baseline", "value": f"{ratio:.1f}x avg", "signal": "🔴" if total < 0 else ("🟢" if ratio > 2 else "🟡")},
+                {"name": "Signal Tier", "value": sig_type, "signal": "🟢" if sig_type == "BUY" else ("🔴" if sig_type == "AVOID" else "🟡")},
             ],
             "topTokens": [btc_token, eth_token],
             "pastSignals": [],

@@ -16,5 +16,5 @@ def unsubscribe(q: asyncio.Queue) -> None:
 
 
 async def broadcast(data: dict[str, Any]) -> None:
-    for q in _subscribers:
+    for q in list(_subscribers):
         await q.put(data)

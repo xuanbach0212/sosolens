@@ -7,7 +7,7 @@ from backend.services.sector import fetch_sector_flows
 @pytest.fixture
 def client():
     c = AsyncMock()
-    c.get_index_snapshot.return_value = {"data": {"change_24h": 2.5}}
+    c.get_index_snapshot.return_value = {"data": {"change_pct_24h": 0.025}}
     return c
 
 

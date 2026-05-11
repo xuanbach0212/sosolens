@@ -16,7 +16,7 @@ class SectorRotationDetector:
         try:
             client = get_client()
             sectors = await fetch_sector_flows(client)
-            cache.set("sector_flows", sectors)
+            cache.put("sector_flows", sectors)
         except Exception as exc:
             logger.warning("[sector_rotation] fetch failed: %s", exc)
             return []
@@ -56,8 +56,8 @@ class SectorRotationDetector:
                 {"name": "Signal Tier", "value": sig_type, "signal": flow_signal},
             ],
             "topTokens": [
-                {"symbol": leader["name"], "price": "—", "change": leader_label, "positive": True},
-                {"symbol": lagger["name"], "price": "—", "change": lagger_label, "positive": False},
+                {"symbol": leader["name"], "price": "—", "change": leader_label, "positive": leader["change"] >= 0},
+                {"symbol": lagger["name"], "price": "—", "change": lagger_label, "positive": lagger["change"] >= 0},
             ],
             "pastSignals": [],
             "accuracy": 0,
