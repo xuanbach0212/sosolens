@@ -1,4 +1,3 @@
-import asyncio
 import json
 import logging
 import os
@@ -69,7 +68,8 @@ async def _try_openai(summary: dict) -> str | None:
                 {"role": "user", "content": json.dumps(summary)},
             ],
         )
-        return response.choices[0].message.content.strip()
+        content = response.choices[0].message.content
+        return content.strip() if content else None
     except ImportError:
         logger.warning("[explainer] openai package not installed — pip install openai")
         return None
@@ -90,7 +90,7 @@ async def _try_openrouter(summary: dict) -> str | None:
             _openrouter_client = (OpenRouter(api_key=api_key), model)
         client, model = _openrouter_client
         prompt = f"{_SYSTEM}\n\nSignal data:\n{json.dumps(summary)}\n\nWrite the explanation now:"
-        response = client.chat.send(
+        response = await client.chat.send_async(
             model=model,
             messages=[{"role": "user", "content": prompt}],
         )

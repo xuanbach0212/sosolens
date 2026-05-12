@@ -110,7 +110,7 @@ Next.js rewrites all `/api/*` calls server-side to the internal backend containe
 | `ANTHROPIC_API_KEY` | `backend/.env` | One required | Anthropic Claude Haiku |
 | `OPENAI_API_KEY` | `backend/.env` | One required | OpenAI gpt-4o-mini |
 | `OPENROUTER_API_KEY` | `backend/.env` | One required | OpenRouter (100+ models) |
-| `OPENROUTER_MODEL` | `backend/.env` | No | OpenRouter model override (default: `llama-3.1-8b-instruct:free`) |
+| `OPENROUTER_MODEL` | `backend/.env` | No | OpenRouter model override (default: `z-ai/glm-4.5-air:free`) |
 | `GEMINI_API_KEY` | `backend/.env` | One required | Google Gemini 2.0 Flash |
 | `NEXT_PUBLIC_API_URL` | `frontend/.env.local` | Local dev only | Backend base URL — omit in Docker |
 
