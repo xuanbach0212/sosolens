@@ -1,6 +1,6 @@
 # AI Signal Platform
 
-**Bloomberg-terminal crypto signal dashboard, powered by SoSoValue + Claude AI**
+**Bloomberg-terminal crypto signal dashboard, powered by SoSoValue + AI (Anthropic · OpenAI · OpenRouter · Gemini)**
 
 Monitor SoSoValue's institutional data 24/7. Get BUY / WATCH / AVOID signals with AI-generated explanations. Trade directly via SoDEX.
 
@@ -17,7 +17,7 @@ Monitor SoSoValue's institutional data 24/7. Get BUY / WATCH / AVOID signals wit
 - **Ingests 7 SoSoValue institutional data modules** hourly — ETF flows, sector rotation, macro events, BTC treasuries, VC activity, news, and market prices
 - **Runs 3 signal detectors** — ETF flow spike anomaly, sector rotation divergence, macro risk-on/off classifier
 - **Scores every signal** — BUY / WATCH / AVOID with confidence % and LOW / MEDIUM / HIGH risk level
-- **Explains in plain English** — Claude Haiku generates a one-paragraph reasoning for each signal
+- **Explains in plain English** — AI explanation via configurable provider (Anthropic Claude Haiku by default; OpenAI, OpenRouter, Gemini supported)
 - **Streams to a Bloomberg-style terminal** — real-time updates via SSE with 60s polling fallback
 
 ---
@@ -28,7 +28,7 @@ Monitor SoSoValue's institutional data 24/7. Get BUY / WATCH / AVOID signals wit
 |-------|-----------|
 | Backend | Python 3.13, FastAPI, SQLite + SQLAlchemy |
 | Scheduler | APScheduler (hourly agent loop) |
-| AI | Claude Haiku (`claude-haiku-4-5-20251001`) via Anthropic SDK |
+| AI | Multi-provider: Anthropic Claude Haiku (default), OpenAI gpt-4o-mini, OpenRouter, Gemini 2.0 Flash — priority chain via `AI_PROVIDERS` env var |
 | Frontend | Next.js 16, Tailwind CSS v4, TypeScript, JetBrains Mono |
 | Real-time | Server-Sent Events (SSE) |
 | Deployment | Docker Compose, Cloudflare Tunnel |
@@ -41,7 +41,7 @@ Monitor SoSoValue's institutional data 24/7. Get BUY / WATCH / AVOID signals wit
 - Node 22+
 - Docker + Docker Compose (for containerized run)
 - [SoSoValue API key](https://sosovalue.gitbook.io/soso-value-api-doc/) (free tier — 20 req/min)
-- [Anthropic API key](https://console.anthropic.com/) (Claude Haiku for signal explanations)
+- At least one AI provider key — [Anthropic](https://console.anthropic.com/) (default), [OpenAI](https://platform.openai.com/), [OpenRouter](https://openrouter.ai/), or [Google Gemini](https://aistudio.google.com/)
 
 ---
 
@@ -58,7 +58,7 @@ source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r backend/requirements.txt
 
 cp backend/.env.example backend/.env
-# Edit backend/.env — fill in SOSOVALUE_API_KEY and ANTHROPIC_API_KEY
+# Edit backend/.env — fill in SOSOVALUE_API_KEY and at least one AI provider key
 
 # Run from repo root (not from backend/)
 uvicorn backend.main:app --reload  # → http://localhost:8000
@@ -79,7 +79,7 @@ npm run dev                        # → http://localhost:3000
 
 ```bash
 cp backend/.env.example backend/.env
-# Edit backend/.env — fill in SOSOVALUE_API_KEY and ANTHROPIC_API_KEY
+# Edit backend/.env — fill in SOSOVALUE_API_KEY and at least one AI provider key
 
 docker compose up --build -d
 # Frontend: http://localhost:3000
@@ -106,7 +106,12 @@ Next.js rewrites all `/api/*` calls server-side to the internal backend containe
 | Variable | File | Required | Description |
 |----------|------|----------|-------------|
 | `SOSOVALUE_API_KEY` | `backend/.env` | Yes | SoSoValue API key |
-| `ANTHROPIC_API_KEY` | `backend/.env` | Yes | Anthropic API key (Claude Haiku) |
+| `AI_PROVIDERS` | `backend/.env` | No | Comma-sep provider priority (default: `anthropic`) |
+| `ANTHROPIC_API_KEY` | `backend/.env` | One required | Anthropic Claude Haiku |
+| `OPENAI_API_KEY` | `backend/.env` | One required | OpenAI gpt-4o-mini |
+| `OPENROUTER_API_KEY` | `backend/.env` | One required | OpenRouter (100+ models) |
+| `OPENROUTER_MODEL` | `backend/.env` | No | OpenRouter model override (default: `llama-3.1-8b-instruct:free`) |
+| `GEMINI_API_KEY` | `backend/.env` | One required | Google Gemini 2.0 Flash |
 | `NEXT_PUBLIC_API_URL` | `frontend/.env.local` | Local dev only | Backend base URL — omit in Docker |
 
 Never commit `.env` or `.env.local`. Both are in `.gitignore`.
@@ -152,7 +157,7 @@ akindo-sosovalue/
 │   ├── agent/
 │   │   ├── runner.py        # run_agent() + APScheduler hourly job + build_full_snapshot()
 │   │   ├── scorer.py        # Confidence % + risk level assignment
-│   │   ├── explainer.py     # Claude Haiku explanation generator
+│   │   ├── explainer.py     # Multi-provider AI explanation (anthropic/openai/openrouter/gemini)
 │   │   └── detectors/       # Signal detector plugins (ETF, sector, macro)
 │   ├── services/            # SoSoValue API clients (7 modules)
 │   └── data/

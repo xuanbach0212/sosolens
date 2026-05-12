@@ -2,8 +2,10 @@ services:
   backend:
     build: .
     env_file: backend/.env
+    environment:
+      - DATABASE_PATH=/app/data/agent.db
     volumes:
-      - agent_db:/app/backend
+      - agent_db:/app/data
     restart: unless-stopped
 
   frontend:
