@@ -93,10 +93,13 @@ export function useDashboardData(): DashboardData {
   }, []);
 
   useEffect(() => {
-    let pollId: ReturnType<typeof setInterval> | null = null;
+    // Load data immediately via REST so the page never hangs waiting for SSE
+    fetchAll();
+    let pollId: ReturnType<typeof setInterval> | null = setInterval(fetchAll, REFRESH_INTERVAL_MS);
     const es = new EventSource(`${API_BASE}/api/stream`);
 
     es.onmessage = (e) => {
+      // SSE connected — cancel REST polling, SSE keeps data fresh
       if (pollId !== null) {
         clearInterval(pollId);
         pollId = null;
@@ -107,16 +110,16 @@ export function useDashboardData(): DashboardData {
       } catch {
         return;
       }
-      if (snap.signals) setSignals(snap.signals);
-      if (snap.stats) setStats(snap.stats);
-      if (snap.market) setMarket(snap.market);
-      if (snap.sectorFlows) setSectorFlows(snap.sectorFlows);
-      if (snap.etfFlows) setEtfFlows(snap.etfFlows);
-      if (snap.macroStatus) setMacroStatus(snap.macroStatus);
-      if (snap.btcTreasuries) setBtcTreasuries(snap.btcTreasuries);
-      if (snap.vcActivity) setVcActivity(snap.vcActivity);
-      if (snap.aiBriefing) setAiBriefing(snap.aiBriefing);
-      if (snap.newsHeadlines) setNewsHeadlines(snap.newsHeadlines);
+      if (snap.signals) setSignals(snap.signals as Signal[]);
+      if (snap.stats) setStats(snap.stats as SignalStats);
+      if (snap.market) setMarket(snap.market as MarketStatus);
+      if (snap.sectorFlows) setSectorFlows(snap.sectorFlows as SectorFlow[]);
+      if (snap.etfFlows) setEtfFlows(snap.etfFlows as EtfFlow[]);
+      if (snap.macroStatus) setMacroStatus(snap.macroStatus as MacroItem[]);
+      if (snap.btcTreasuries) setBtcTreasuries(snap.btcTreasuries as BtcTreasury[]);
+      if (snap.vcActivity) setVcActivity(snap.vcActivity as VcActivity[]);
+      if (snap.aiBriefing) setAiBriefing(snap.aiBriefing as string[]);
+      if (snap.newsHeadlines) setNewsHeadlines(snap.newsHeadlines as NewsHeadline[]);
       setLastUpdated(new Date());
       setIsConnected(true);
       setIsLoading(false);
@@ -125,10 +128,7 @@ export function useDashboardData(): DashboardData {
 
     es.onerror = () => {
       setIsConnected(false);
-      if (pollId === null) {
-        fetchAll();
-        pollId = setInterval(fetchAll, REFRESH_INTERVAL_MS);
-      }
+      // SSE failed — polling fallback is already running, nothing to do
     };
 
     return () => {
