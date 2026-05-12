@@ -1,4 +1,4 @@
-# AI Signal Platform
+# SoSoLens
 
 **Bloomberg-terminal crypto signal dashboard, powered by SoSoValue + AI (Anthropic · OpenAI · OpenRouter · Gemini)**
 
@@ -49,8 +49,8 @@ Monitor SoSoValue's institutional data 24/7. Get BUY / WATCH / AVOID signals wit
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/xuanbach0212/akindo-sosovalue.git
-cd akindo-sosovalue
+git clone https://github.com/xuanbach0212/sosolens.git
+cd sosolens
 
 # 2. Backend
 python -m venv .venv
@@ -149,7 +149,7 @@ pytest backend/tests/        # 87 tests, ~1s
 ## Project Structure
 
 ```
-akindo-sosovalue/
+sosolens/
 ├── backend/
 │   ├── main.py              # FastAPI app — all routes + SSE endpoint
 │   ├── events.py            # SSE pub/sub broker

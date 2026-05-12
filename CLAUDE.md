@@ -27,7 +27,7 @@ WaveHack is NOT a traditional one-shot hackathon:
 
 ---
 
-## Product: AI Signal Platform
+## Product: SoSoLens
 
 One-screen Bloomberg-terminal dashboard that watches SoSoValue's institutional data APIs 24/7 and surfaces actionable trading signals (BUY / WATCH / AVOID) with plain-English AI explanations and a SoDEX trade button.
 
@@ -219,8 +219,8 @@ Never use the system `python3` or `pip` — they don't have the project dependen
 ### After finishing any task — update everything
 When a task, issue, or feature is complete, always do ALL of the following before moving on:
 1. **Close the GitHub issue** — `gh issue close <N> --comment "..."` with a brief summary
-2. **Update the roadmap** — mark the issue ✅ in `wiki/outputs/2026-05-04-akindo-sosovalue-roadmap.md` and update the progress count
-3. **Update `wiki/concepts/ai-signal-platform.md`** — reflect new build status, issues done/remaining
+2. **Update the roadmap** — mark the issue ✅ in `wiki/outputs/2026-05-04-sosolens-roadmap.md` and update the progress count
+3. **Update `wiki/concepts/sosolens.md`** — reflect new build status, issues done/remaining
 4. **Append to `wiki/log.md`** (in `/home/tyler/2ndbrain/`) — new entry at the top with pages updated, files created/modified, key claim
 5. **Update this CLAUDE.md** — if project structure, tech stack, dev commands, or Wave 1 progress changed
 6. **Commit and push** — don't leave finished work uncommitted on dev
