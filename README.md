@@ -136,7 +136,7 @@ All endpoints fall back to hardcoded data if the SoSoValue API is unavailable.
 
 ```bash
 # From repo root, with .venv active
-pytest backend/tests/        # 83 tests, ~1s
+pytest backend/tests/        # 87 tests, ~1s
 ```
 
 ---
