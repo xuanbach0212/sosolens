@@ -8,7 +8,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SoSoAlpha — AI Signal Platform",
+  title: "SoSoLens",
   description: "Bloomberg Terminal-style AI trading signals powered by SoSoValue",
 };
 
