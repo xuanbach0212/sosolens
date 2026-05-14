@@ -178,15 +178,15 @@ The runner (`runner.py`) iterates `DETECTORS`, calls `run()`, pipes each raw sig
 ### Wave 1 (due 2026-05-18) — 24/24 ✅ COMPLETE
 All issues done. Deployed on Raspberry Pi via Docker + Cloudflare Tunnel. 98/98 backend tests passing.
 
-### Wave 2 (due 2026-06-01) — 2/3
+### Wave 2 (due 2026-06-01) — 3/3 ✅ COMPLETE
 - ✅ #25 — SoDEX trade button (`buildSodexUrl` in SignalDetail, SECTOR_TOKEN map in sector_rotation.py)
 - ✅ #26 — Subscription smart contract (`contracts/src/SoSoLensSubscription.sol`, 5 USDC/30d on Base Sepolia; `backend/services/subscription.py`; `/api/subscription/status`, gated `/api/signals` + `/api/stream`)
-- ❌ #27 — Frontend subscription gate (wallet connect + subscribe modal + premium/free UI state)
+- ✅ #27 — Frontend subscription gate (`useWallet` + `useSubscription` + `WalletBar` + `SubscribeModal`; viem on Base Sepolia; SSE reconnects with ?wallet=; ⚠ DELAYED 1H badge for free tier)
 
-### Wave 3 (due 2026-06-15) — 2/4
+### Wave 3 (due 2026-06-15) — 3/4
+- ✅ #28 — Historical signal accuracy tracker (`signal_outcomes` table, `check_outcomes()`, `_enrich_with_outcomes()`; real accuracy % + pastSignals in /api/signals; 117/117 tests)
 - ✅ #30 — README + API setup guide
 - ✅ #31 — Akindo submission description
-- ❌ #28 — Historical signal accuracy tracker
 - ❌ #29 — 90-second demo video
 
 **Deploy contract (one-time after Wave 2 env vars are set):**
