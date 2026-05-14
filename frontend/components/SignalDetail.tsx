@@ -26,9 +26,9 @@ interface Props {
 
 // sodexPair is "BUY BTC/USDC" or "SELL ETH/USDC" — extract pair and convert to SoDEX URL
 function buildSodexUrl(sodexPair: string): string {
-  const match = sodexPair.match(/([A-Z]+\/[A-Z]+)/);
-  const pair = match ? match[1].replace("/", "_") : "";
-  return `https://sodex.com/trade/spot/${pair}`;
+  const match = sodexPair.match(/([A-Z0-9]+\/[A-Z0-9]+)/);
+  if (!match) return "https://sodex.com";
+  return `https://sodex.com/trade/spot/${match[1].replace("/", "_")}`;
 }
 
 function SectionHeader({ title }: { title: string }) {
