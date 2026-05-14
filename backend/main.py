@@ -1,14 +1,15 @@
 import asyncio
 import json
 from contextlib import asynccontextmanager, suppress
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 load_dotenv("backend/.env")
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from backend.events import subscribe, unsubscribe
+from backend.services.subscription import is_subscribed, get_expiry
 from backend.data.hardcoded import (
     MARKET_STATUS,
     SECTOR_FLOWS,
@@ -59,7 +60,10 @@ _MAX_SIGNAL_AGE_HOURS = 25
 
 
 @app.get("/api/signals")
-def get_signals() -> dict:
+def get_signals(wallet: str | None = Query(default=None)) -> dict:
+    premium = is_subscribed(wallet) if wallet else False
+    delay_cutoff = datetime.now(timezone.utc) - timedelta(hours=1) if not premium else None
+
     with get_db() as db:
         from sqlalchemy import select
         rows = db.scalars(select(Signal)).all()
@@ -72,6 +76,8 @@ def get_signals() -> dict:
             delta = now - updated
             if delta.total_seconds() > _MAX_SIGNAL_AGE_HOURS * 3600:
                 continue  # skip stale signals
+            if delay_cutoff and updated > delay_cutoff:
+                continue  # free tier: hide signals updated within the last hour
             hours = int(delta.total_seconds() // 3600)
             p = dict(s.payload)
             p["timeAgo"] = f"{hours}h" if hours < 24 else f"{delta.days}d"
@@ -134,11 +140,23 @@ async def trigger_agent_run() -> dict:
     return {"status": "ok"}
 
 
+@app.get("/api/subscription/status")
+def get_subscription_status(wallet: str = Query()) -> dict:
+    subscribed = is_subscribed(wallet)
+    expiry = get_expiry(wallet) if subscribed else None
+    return {"subscribed": subscribed, "expiry": expiry}
+
+
 @app.get("/api/stream")
-async def stream():
-    q = subscribe()
+async def stream(wallet: str | None = Query(default=None)):
+    premium = is_subscribed(wallet) if wallet else False
 
     async def gen():
+        if not premium:
+            yield f"event: access_denied\ndata: {json.dumps({'reason': 'subscription required'})}\n\n"
+            return
+
+        q = subscribe()
         try:
             yield f"data: {json.dumps(build_full_snapshot())}\n\n"
             while True:
