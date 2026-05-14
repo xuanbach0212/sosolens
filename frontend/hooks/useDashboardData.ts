@@ -34,7 +34,7 @@ export interface DashboardData {
   refresh: () => void;
 }
 
-export function useDashboardData(): DashboardData {
+export function useDashboardData(wallet?: string): DashboardData {
   const [signals, setSignals] = useState<Signal[]>([]);
   const [stats, setStats] = useState<SignalStats>({ today: 0, thisWeek: 0, accuracy: 0 });
   const [market, setMarket] = useState<MarketStatus | null>(null);
@@ -96,7 +96,16 @@ export function useDashboardData(): DashboardData {
     // Load data immediately via REST so the page never hangs waiting for SSE
     fetchAll();
     let pollId: ReturnType<typeof setInterval> | null = setInterval(fetchAll, REFRESH_INTERVAL_MS);
-    const es = new EventSource(`${API_BASE}/api/stream`);
+    const sseUrl = wallet
+      ? `${API_BASE}/api/stream?wallet=${encodeURIComponent(wallet)}`
+      : `${API_BASE}/api/stream`;
+    const es = new EventSource(sseUrl);
+
+    es.addEventListener('access_denied', () => {
+      // Server rejected wallet as free tier — close SSE, stay on polling fallback
+      es.close();
+      setIsConnected(false);
+    });
 
     es.onmessage = (e) => {
       // SSE connected — cancel REST polling, SSE keeps data fresh
@@ -135,7 +144,7 @@ export function useDashboardData(): DashboardData {
       es.close();
       if (pollId !== null) clearInterval(pollId);
     };
-  }, [fetchAll]);
+  }, [fetchAll, wallet]);
 
   return {
     signals,

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { MarketStatus } from "@/types";
 
 interface Props {
@@ -6,9 +7,10 @@ interface Props {
   isError: boolean;
   isConnected: boolean;
   lastUpdated: Date | null;
+  walletBar?: ReactNode;
 }
 
-export default function TopBar({ market, isLoading, isError, isConnected, lastUpdated }: Props) {
+export default function TopBar({ market, isLoading, isError, isConnected, lastUpdated, walletBar }: Props) {
   const statusLabel = isError
     ? <span className="text-terminal-red">● RECONNECTING · POLLING FALLBACK</span>
     : isConnected && lastUpdated
@@ -74,8 +76,14 @@ export default function TopBar({ market, isLoading, isError, isConnected, lastUp
             <span className="text-terminal-muted">{dash}</span>
           )}
         </span>
-        <span className="ml-auto text-terminal-muted text-[10px]">
+        <span className="ml-auto flex items-center gap-3 text-[10px]">
           {statusLabel}
+          {walletBar && (
+            <>
+              <span className="text-terminal-muted">│</span>
+              {walletBar}
+            </>
+          )}
         </span>
       </div>
     </div>

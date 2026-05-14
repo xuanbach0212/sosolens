@@ -22,9 +22,10 @@ interface Props {
   onSelect: (id: string) => void;
   stats: { today: number; thisWeek: number; accuracy: number };
   isLoading: boolean;
+  isPremium?: boolean | null;
 }
 
-export default function SignalFeed({ signals, selectedId, onSelect, stats, isLoading }: Props) {
+export default function SignalFeed({ signals, selectedId, onSelect, stats, isLoading, isPremium }: Props) {
   return (
     <div
       className="border-r border-terminal-border flex flex-col overflow-hidden"
@@ -86,6 +87,11 @@ export default function SignalFeed({ signals, selectedId, onSelect, stats, isLoa
             {stats.accuracy > 0 ? `${stats.accuracy}%` : "—"}
           </span>
         </div>
+        {isPremium === false && (
+          <div className="text-terminal-yellow pt-1 border-t border-terminal-border mt-1">
+            ⚠ DELAYED 1H · FREE TIER
+          </div>
+        )}
       </div>
     </div>
   );
