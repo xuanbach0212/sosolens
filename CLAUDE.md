@@ -118,10 +118,10 @@ curl -X POST http://localhost:8000/api/agent/run
 cd frontend && npm run dev
 cd frontend && npm run build
 
-# Smart contracts (Wave 2)
+# Smart contracts (Wave 2) — always run from contracts/ subdir
 cd contracts && forge build
 cd contracts && forge test
-cd contracts && forge script scripts/Deploy.s.sol --rpc-url $RPC_URL
+cd contracts && forge script script/Deploy.s.sol --rpc-url $RPC_URL --broadcast --private-key $PRIVATE_KEY
 ```
 
 **Important**: `uvicorn` must be run from the repo root (not from `backend/`), using the `backend.main:app` module path.
@@ -136,8 +136,8 @@ Never commit `.env`. Copy `backend/.env.example` to `backend/.env` and fill in:
 SOSOVALUE_API_KEY=      # required for live data; without it endpoints fall back to hardcoded
 ANTHROPIC_API_KEY=      # required for AI signal explanations (issue #15)
 PRIVATE_KEY=            # deployer wallet (Wave 2 smart contracts)
-RPC_URL=                # target chain RPC (Wave 2)
-NEXT_PUBLIC_CHAIN_ID=   # (Wave 2)
+RPC_URL=https://sepolia.base.org  # Base Sepolia RPC
+SUBSCRIPTION_CONTRACT_ADDRESS=    # set after deploying contracts/src/SoSoLensSubscription.sol
 ```
 
 ---
@@ -146,7 +146,7 @@ NEXT_PUBLIC_CHAIN_ID=   # (Wave 2)
 
 | Method | Path | Returns |
 |--------|------|---------|
-| GET | `/api/signals` | `{signals: Signal[], stats: SignalStats}` — from DB if populated, else hardcoded |
+| GET | `/api/signals` | `{signals: Signal[], stats: SignalStats}` — free tier: 1h delayed; premium: real-time |
 | GET | `/api/market` | `{market: MarketStatus}` |
 | GET | `/api/sector-flows` | `{sectorFlows: SectorFlow[]}` — live from SoSoValue, fallback hardcoded |
 | GET | `/api/etf-flows` | `{etfFlows: EtfFlow[]}` — live from SoSoValue, fallback hardcoded |
@@ -155,6 +155,8 @@ NEXT_PUBLIC_CHAIN_ID=   # (Wave 2)
 | GET | `/api/vc-activity` | `{vcActivity: VcActivity[]}` |
 | GET | `/api/news` | `{aiBriefing: string[], newsHeadlines: NewsHeadline[]}` |
 | POST | `/api/agent/run` | `{status: "ok"}` — manually fires the agent loop |
+| GET | `/api/subscription/status?wallet=0x...` | `{subscribed: bool, expiry: int\|null}` — on-chain check via web3.py |
+| GET | `/api/stream?wallet=0x...` | SSE stream — premium only; sends `event: access_denied` if not subscribed |
 
 ---
 
@@ -171,30 +173,27 @@ The runner (`runner.py`) iterates `DETECTORS`, calls `run()`, pipes each raw sig
 
 ---
 
-## Wave 1 Progress (due 2026-05-18)
+## Wave Progress
 
-**Done (24/24 — Wave 1 complete):**
-- #1 Frontend scaffold + terminal layout
-- #2 Python agent scaffold (models, DB, runner, scheduler, detector registry)
-- #3 SoSoValue API client (auth, rate limit, retry)
-- #4 ETF API normalization + `/api/etf-flows` live data ✅
-- #5 Sector/Index API normalization + `/api/sector-flows` live data ✅
-- #6 BTC Treasuries API + `/api/btc-treasuries` live ✅
-- #7 Macro API + `/api/macro` live ✅
-- #8 News/Feeds API + `/api/news` live ✅
-- #9 Fundraising API + `/api/vc-activity` live ✅
-- #10 Currency/Pairs API + `/api/market` live ✅
-- #11 ETF flow spike detector ✅
-- #12 Sector rotation divergence detector ✅
-- #13 Macro risk-on/risk-off classifier ✅
-- #14 Signal scorer (confidence % + risk level) ✅
-- #15 AI explanation generator (Claude Haiku) ✅
-- #16 Signal persistence + hourly scheduler (APScheduler, SQLite upsert, live stats) ✅
-- #17 REST API (all 8 endpoints)
-- #18–#24 All frontend panels + live polling hook
+### Wave 1 (due 2026-05-18) — 24/24 ✅ COMPLETE
+All issues done. Deployed on Raspberry Pi via Docker + Cloudflare Tunnel. 98/98 backend tests passing.
 
-**Remaining before submission:**
-- #36 Remove dummy data — connect all UI panels to live BE endpoints
+### Wave 2 (due 2026-06-01) — 2/3
+- ✅ #25 — SoDEX trade button (`buildSodexUrl` in SignalDetail, SECTOR_TOKEN map in sector_rotation.py)
+- ✅ #26 — Subscription smart contract (`contracts/src/SoSoLensSubscription.sol`, 5 USDC/30d on Base Sepolia; `backend/services/subscription.py`; `/api/subscription/status`, gated `/api/signals` + `/api/stream`)
+- ❌ #27 — Frontend subscription gate (wallet connect + subscribe modal + premium/free UI state)
+
+### Wave 3 (due 2026-06-15) — 2/4
+- ✅ #30 — README + API setup guide
+- ✅ #31 — Akindo submission description
+- ❌ #28 — Historical signal accuracy tracker
+- ❌ #29 — 90-second demo video
+
+**Deploy contract (one-time after Wave 2 env vars are set):**
+```bash
+cd contracts && forge script script/Deploy.s.sol --rpc-url $RPC_URL --broadcast --private-key $PRIVATE_KEY
+# Copy printed address → SUBSCRIPTION_CONTRACT_ADDRESS in backend/.env
+```
 
 ---
 
