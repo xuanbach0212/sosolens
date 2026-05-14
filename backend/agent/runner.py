@@ -1,12 +1,13 @@
 import logging
-from datetime import datetime, timezone
+from collections import defaultdict
+from datetime import datetime, timedelta, timezone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy import select
 from backend.agent.db import get_db
 from backend.agent.detectors import DETECTORS
 from backend.agent.scorer import score_signal
 from backend.agent.explainer import explain_signal
-from backend.agent.models import Signal
+from backend.agent.models import Signal, SignalOutcome
 import backend.cache as cache
 from backend.events import broadcast
 from backend.data.hardcoded import (
@@ -87,6 +88,99 @@ async def _refresh_panel_cache() -> None:
 _MAX_SIGNAL_AGE_HOURS = 25
 
 
+def _record_signal_entries(active_signals: dict[str, str], btc_price: float) -> None:
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=20)
+    with get_db() as db:
+        for detector_id, signal_type in active_signals.items():
+            recent = db.scalars(
+                select(SignalOutcome)
+                .where(SignalOutcome.detector_id == detector_id)
+                .where(SignalOutcome.recorded_at >= cutoff)
+            ).first()
+            if recent:
+                continue
+            db.add(SignalOutcome(
+                detector_id=detector_id,
+                signal_type=signal_type,
+                recorded_at=datetime.now(timezone.utc),
+                entry_price=btc_price,
+                outcome="SKIP" if signal_type == "WATCH" else None,
+            ))
+
+
+async def check_outcomes() -> None:
+    from backend.services.sosovalue import get_client
+    from backend.services.currency import fetch_btc_price_usd
+
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+    with get_db() as db:
+        pending = db.scalars(
+            select(SignalOutcome)
+            .where(SignalOutcome.outcome.is_(None))
+            .where(SignalOutcome.recorded_at <= cutoff)
+        ).all()
+        if not pending:
+            return
+
+    try:
+        btc_price = await fetch_btc_price_usd(get_client())
+    except Exception as exc:
+        logger.warning("[outcomes] price fetch failed, will retry: %s", exc)
+        return
+
+    now = datetime.now(timezone.utc)
+    with get_db() as db:
+        for row in db.scalars(
+            select(SignalOutcome)
+            .where(SignalOutcome.outcome.is_(None))
+            .where(SignalOutcome.recorded_at <= cutoff)
+        ).all():
+            row.exit_price = btc_price
+            row.resolved_at = now
+            row.outcome = (
+                "WIN" if (row.signal_type == "BUY" and btc_price > row.entry_price)
+                      or (row.signal_type == "AVOID" and btc_price < row.entry_price)
+                else "LOSS"
+            )
+
+
+def _fmt_outcome(o: SignalOutcome) -> dict:
+    recorded = o.recorded_at
+    if recorded.tzinfo is None:
+        recorded = recorded.replace(tzinfo=timezone.utc)
+    date_str = recorded.strftime("%b %-d")
+    if o.outcome == "SKIP" or o.exit_price is None or not o.entry_price:
+        return {"date": date_str, "label": o.signal_type, "result": "—", "success": False}
+    pct = (o.exit_price - o.entry_price) / o.entry_price * 100
+    result = f"+{pct:.1f}%" if pct >= 0 else f"{pct:.1f}%"
+    return {"date": date_str, "label": o.signal_type, "result": result, "success": o.outcome == "WIN"}
+
+
+def _enrich_with_outcomes(db, payloads: list[dict]) -> tuple[list[dict], int]:
+    """Inject accuracy + pastSignals into each payload. Returns (payloads, global_accuracy)."""
+    rows = db.scalars(
+        select(SignalOutcome)
+        .where(SignalOutcome.outcome.is_not(None))
+        .order_by(SignalOutcome.recorded_at.desc())
+    ).all()
+
+    by_detector: dict[str, list] = defaultdict(list)
+    for row in rows:
+        by_detector[row.detector_id].append(row)
+
+    for p in payloads:
+        det_rows = by_detector.get(p["id"], [])
+        scored = [o for o in det_rows if o.outcome in ("WIN", "LOSS")]
+        wins   = [o for o in scored if o.outcome == "WIN"]
+        p["accuracy"]    = round(len(wins) / len(scored) * 100) if scored else 0
+        p["pastSignals"] = [_fmt_outcome(o) for o in det_rows[:3]]
+
+    all_scored = [o for o in rows if o.outcome in ("WIN", "LOSS")]
+    all_wins   = [o for o in all_scored if o.outcome == "WIN"]
+    global_acc = round(len(all_wins) / len(all_scored) * 100) if all_scored else 0
+    return payloads, global_acc
+
+
 def build_full_snapshot() -> dict:
     with get_db() as db:
         rows = db.scalars(select(Signal)).all()
@@ -103,9 +197,10 @@ def build_full_snapshot() -> dict:
             p = dict(s.payload)
             p["timeAgo"] = f"{hours}h" if hours < 24 else f"{delta.days}d"
             payloads.append(p)
+        payloads, global_acc = _enrich_with_outcomes(db, payloads)
 
     signals = payloads
-    stats = {"today": len(signals), "thisWeek": len(signals), "accuracy": 0}
+    stats = {"today": len(signals), "thisWeek": len(signals), "accuracy": global_acc}
 
     cached_macro = cache.get("macro_status")
     if isinstance(cached_macro, dict) and "indicators" in cached_macro:
@@ -146,6 +241,7 @@ async def run_agent() -> None:
         return
 
     generated = 0
+    active_signals: dict[str, str] = {}
     for detector in DETECTORS:
         raw_signals = await detector.run()
         for raw in raw_signals:
@@ -173,9 +269,19 @@ async def run_agent() -> None:
                         explanation=explanation,
                         payload=payload,
                     ))
+            active_signals[raw["id"]] = payload["type"]
             generated += 1
 
     await _refresh_panel_cache()
+    if active_signals:
+        try:
+            from backend.services.sosovalue import get_client
+            from backend.services.currency import fetch_btc_price_usd
+            btc_price = await fetch_btc_price_usd(get_client())
+            _record_signal_entries(active_signals, btc_price)
+        except Exception as exc:
+            logger.warning("[agent] outcome entry recording skipped: %s", exc)
+    await check_outcomes()
     await broadcast(build_full_snapshot())
     logger.info("[agent] run_agent done — %d signals upserted, SSE broadcast sent", generated)
 

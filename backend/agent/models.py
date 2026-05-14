@@ -7,6 +7,19 @@ class Base(DeclarativeBase):
     pass
 
 
+class SignalOutcome(Base):
+    __tablename__ = "signal_outcomes"
+
+    id          = Column(Integer,  primary_key=True)
+    detector_id = Column(String,   nullable=False, index=True)
+    signal_type = Column(String,   nullable=False)
+    recorded_at = Column(DateTime, nullable=False)
+    entry_price = Column(Float,    nullable=False)
+    exit_price  = Column(Float,    nullable=True)
+    resolved_at = Column(DateTime, nullable=True)
+    outcome     = Column(String,   nullable=True)   # "WIN" | "LOSS" | "SKIP" | None=pending
+
+
 class Signal(Base):
     __tablename__ = "signals"
 

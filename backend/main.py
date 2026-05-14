@@ -22,7 +22,7 @@ from backend.data.hardcoded import (
 )
 from backend.agent.db import init_db, get_db
 from backend.agent.models import Signal
-from backend.agent.runner import run_agent, start_scheduler, build_full_snapshot
+from backend.agent.runner import run_agent, start_scheduler, build_full_snapshot, _enrich_with_outcomes
 import backend.cache as cache
 
 
@@ -51,9 +51,9 @@ app.add_middleware(
 )
 
 
-def _compute_stats(payloads: list[dict]) -> dict:
+def _compute_stats(payloads: list[dict], accuracy: int) -> dict:
     total = len(payloads)
-    return {"today": total, "thisWeek": total, "accuracy": 0}
+    return {"today": total, "thisWeek": total, "accuracy": accuracy}
 
 
 _MAX_SIGNAL_AGE_HOURS = 25
@@ -82,8 +82,9 @@ def get_signals(wallet: str | None = Query(default=None)) -> dict:
             p = dict(s.payload)
             p["timeAgo"] = f"{hours}h" if hours < 24 else f"{delta.days}d"
             payloads.append(p)
+        payloads, global_acc = _enrich_with_outcomes(db, payloads)
     if payloads:
-        return {"signals": payloads, "stats": _compute_stats(payloads)}
+        return {"signals": payloads, "stats": _compute_stats(payloads, global_acc)}
     return {"signals": [], "stats": {"today": 0, "thisWeek": 0, "accuracy": 0}}
 
 

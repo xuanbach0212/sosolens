@@ -58,6 +58,15 @@ async def fetch_btc_eth_prices(client: SoSoValueClient) -> tuple[dict, dict]:
     return _token("BTC", btc_raw), _token("ETH", eth_raw)
 
 
+async def fetch_btc_price_usd(client: SoSoValueClient) -> float:
+    """Return current BTC price as a raw float, or raise on failure."""
+    raw = (await client.get_currency_snapshot(BTC_ID)).get("data") or {}
+    price = float(raw.get("price") or 0)
+    if not price:
+        raise ValueError("BTC price returned zero from API")
+    return price
+
+
 async def fetch_market_status(client: SoSoValueClient) -> dict:
     from backend.data.hardcoded import MARKET_STATUS
 
