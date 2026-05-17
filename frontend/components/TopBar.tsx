@@ -1,5 +1,14 @@
-import type { ReactNode } from "react";
+import { useRef } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import type { MarketStatus, PriceSnapshot } from "@/types";
+
+function fearGreedDisplay(v: number): { className: string; style?: CSSProperties } {
+  if (v <= 24) return { className: "text-terminal-red" };
+  if (v <= 44) return { className: "", style: { color: "#f97316" } };
+  if (v <= 55) return { className: "text-terminal-yellow" };
+  if (v <= 74) return { className: "text-terminal-green" };
+  return { className: "text-terminal-green font-bold" };
+}
 
 function Sparkline({ data, color }: { data: number[]; color: string }) {
   if (data.length < 2) return null;
@@ -29,6 +38,8 @@ interface Props {
 }
 
 export default function TopBar({ market, isLoading, isError, isConnected, lastUpdated, walletBar, priceHistory }: Props) {
+  const prevFearGreed = useRef<number | null>(null);
+
   const statusLabel = isError
     ? <span className="text-terminal-red">● RECONNECTING · POLLING FALLBACK</span>
     : isConnected && lastUpdated
@@ -38,6 +49,11 @@ export default function TopBar({ market, isLoading, isError, isConnected, lastUp
     : <span className="text-terminal-muted">● SOSOVALUE API</span>;
 
   const dash = "—";
+
+  const fearGreedTrend = market && prevFearGreed.current !== null && market.fearGreed !== prevFearGreed.current
+    ? market.fearGreed > prevFearGreed.current ? "↑" : "↓"
+    : null;
+  if (market) prevFearGreed.current = market.fearGreed;
 
   const btcData = priceHistory.map(p => p.btcPrice);
   const ethData = priceHistory.map(p => p.ethPrice);
@@ -93,12 +109,20 @@ export default function TopBar({ market, isLoading, isError, isConnected, lastUp
           <span className="text-terminal-green">{market?.volChange ?? ""}</span>
         </span>
         <span className="text-terminal-muted">│</span>
-        <span>
+        <span className="flex items-center gap-1">
           FEAR/GREED:{" "}
           {market ? (
-            <span className="text-terminal-yellow">
-              {market.fearGreed} {market.fearGreedLabel}
-            </span>
+            <>
+              <span className={fearGreedDisplay(market.fearGreed).className} style={fearGreedDisplay(market.fearGreed).style}>
+                {market.fearGreed}
+              </span>
+              {fearGreedTrend && (
+                <span className={fearGreedTrend === "↑" ? "text-terminal-green" : "text-terminal-red"}>
+                  {fearGreedTrend}
+                </span>
+              )}
+              <span className="text-terminal-muted">{market.fearGreedLabel}</span>
+            </>
           ) : (
             <span className="text-terminal-muted">{dash}</span>
           )}
