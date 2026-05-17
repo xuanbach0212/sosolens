@@ -2,12 +2,12 @@ import logging
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from backend.agent.db import get_db
 from backend.agent.detectors import DETECTORS
 from backend.agent.scorer import score_signal
 from backend.agent.explainer import explain_signal
-from backend.agent.models import Signal, SignalOutcome
+from backend.agent.models import Signal, SignalOutcome, PriceSnapshot
 import backend.cache as cache
 from backend.events import broadcast
 from backend.data.hardcoded import (
@@ -53,6 +53,17 @@ async def _refresh_market_cache() -> None:
     except Exception as exc:
         logger.warning("[agent] cache: market_30s failed: %s", exc)
         market = cache.get_or("market_status", MARKET_STATUS)
+    else:
+        btc_raw = market.get("btcPriceRaw", 0.0)
+        eth_raw = market.get("ethPriceRaw", 0.0)
+        if btc_raw > 0 and eth_raw > 0:
+            cutoff = datetime.now(timezone.utc) - timedelta(hours=72)
+            try:
+                with get_db() as db:
+                    db.add(PriceSnapshot(btc_price=btc_raw, eth_price=eth_raw))
+                    db.execute(delete(PriceSnapshot).where(PriceSnapshot.recorded_at < cutoff))
+            except Exception as db_exc:
+                logger.warning("[agent] price_snapshot write failed: %s", db_exc)
     await broadcast({"market": market})
 
 

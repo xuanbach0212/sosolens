@@ -103,5 +103,7 @@ async def fetch_market_status(client: SoSoValueClient) -> dict:
         "vol": _fmt_large(total_vol) if total_vol else base["vol"],
         "sentiment": sentiment,
         "sentimentPositive": positive,
+        "btcPriceRaw": btc_price,
+        "ethPriceRaw": eth_price,
     })
     return base

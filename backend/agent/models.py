@@ -7,6 +7,16 @@ class Base(DeclarativeBase):
     pass
 
 
+class PriceSnapshot(Base):
+    __tablename__ = "price_snapshots"
+
+    id          = Column(Integer,  primary_key=True)
+    recorded_at = Column(DateTime, nullable=False, index=True,
+                         default=lambda: datetime.now(timezone.utc))
+    btc_price   = Column(Float,    nullable=False)
+    eth_price   = Column(Float,    nullable=False)
+
+
 class SignalOutcome(Base):
     __tablename__ = "signal_outcomes"
 

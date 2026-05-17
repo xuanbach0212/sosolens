@@ -155,6 +155,7 @@ SUBSCRIPTION_CONTRACT_ADDRESS=    # set after deploying contracts/src/SoSoLensSu
 | GET | `/api/vc-activity` | `{vcActivity: VcActivity[]}` |
 | GET | `/api/news` | `{aiBriefing: string[], newsHeadlines: NewsHeadline[]}` |
 | POST | `/api/agent/run` | `{status: "ok"}` — manually fires the agent loop |
+| GET | `/api/price-history?hours=N` | `{priceHistory: [{timestamp, btcPrice, ethPrice}]}` — last N hours of 30s snapshots (default 24h, max 168h) |
 | GET | `/api/subscription/status?wallet=0x...` | `{subscribed: bool, expiry: int\|null}` — on-chain check via web3.py |
 | GET | `/api/stream?wallet=0x...` | SSE stream — premium only; sends `event: access_denied` if not subscribed |
 
@@ -188,6 +189,11 @@ All issues done. Deployed on Raspberry Pi via Docker + Cloudflare Tunnel. 98/98 
 - ✅ #30 — README + API setup guide
 - ✅ #31 — Akindo submission description
 - ❌ #29 — 90-second demo video
+
+### UI Upgrade Track (ongoing)
+- ✅ #46 — Split refresh cadence (BTC/ETH price 30s vs agent hourly)
+- ✅ #47 — BTC/ETH price snapshot storage (`price_snapshots` table, 72h retention; `GET /api/price-history`; `btcPriceRaw`/`ethPriceRaw` in market status; 131/131 tests)
+- ⬜ #51 — TopBar BTC/ETH 24h sparkline (unblocked by #47)
 
 **Deploy contract (one-time after Wave 2 env vars are set):**
 ```bash

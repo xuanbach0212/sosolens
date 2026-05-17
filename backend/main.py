@@ -21,7 +21,7 @@ from backend.data.hardcoded import (
     NEWS_HEADLINES,
 )
 from backend.agent.db import init_db, get_db
-from backend.agent.models import Signal
+from backend.agent.models import Signal, PriceSnapshot
 from backend.agent.runner import run_agent, start_scheduler, build_full_snapshot, _enrich_with_outcomes
 import backend.cache as cache
 
@@ -91,6 +91,27 @@ def get_signals(wallet: str | None = Query(default=None)) -> dict:
 @app.get("/api/market")
 def get_market() -> dict:
     return {"market": cache.get_or("market_status", MARKET_STATUS)}
+
+
+@app.get("/api/price-history")
+def get_price_history(hours: int = Query(default=24, ge=1, le=168)) -> dict:
+    from sqlalchemy import select
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+    with get_db() as db:
+        rows = db.scalars(
+            select(PriceSnapshot)
+            .where(PriceSnapshot.recorded_at >= cutoff)
+            .order_by(PriceSnapshot.recorded_at.asc())
+        ).all()
+        history = [
+            {
+                "timestamp": r.recorded_at.replace(tzinfo=timezone.utc).isoformat(),
+                "btcPrice": r.btc_price,
+                "ethPrice": r.eth_price,
+            }
+            for r in rows
+        ]
+    return {"priceHistory": history}
 
 
 @app.get("/api/sector-flows")
