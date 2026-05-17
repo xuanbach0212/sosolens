@@ -11,6 +11,7 @@ import type {
   BtcTreasury,
   VcActivity,
   NewsHeadline,
+  PriceSnapshot,
 } from '@/types';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
@@ -27,6 +28,7 @@ export interface DashboardData {
   vcActivity: VcActivity[];
   aiBriefing: string[];
   newsHeadlines: NewsHeadline[];
+  priceHistory: PriceSnapshot[];
   isLoading: boolean;
   isError: boolean;
   isConnected: boolean;
@@ -45,6 +47,7 @@ export function useDashboardData(wallet?: string): DashboardData {
   const [vcActivity, setVcActivity] = useState<VcActivity[]>([]);
   const [aiBriefing, setAiBriefing] = useState<string[]>([]);
   const [newsHeadlines, setNewsHeadlines] = useState<NewsHeadline[]>([]);
+  const [priceHistory, setPriceHistory] = useState<PriceSnapshot[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
@@ -54,7 +57,7 @@ export function useDashboardData(wallet?: string): DashboardData {
     setIsLoading(true);
     setIsError(false);
     try {
-      const [sigRes, mktRes, secRes, etfRes, macRes, btcRes, vcRes, newsRes] =
+      const [sigRes, mktRes, secRes, etfRes, macRes, btcRes, vcRes, newsRes, phRes] =
         await Promise.all([
           fetch(`${API_BASE}/api/signals`),
           fetch(`${API_BASE}/api/market`),
@@ -64,14 +67,16 @@ export function useDashboardData(wallet?: string): DashboardData {
           fetch(`${API_BASE}/api/btc-treasuries`),
           fetch(`${API_BASE}/api/vc-activity`),
           fetch(`${API_BASE}/api/news`),
+          fetch(`${API_BASE}/api/price-history?hours=24`),
         ]);
 
       if (!sigRes.ok || !mktRes.ok) throw new Error('fetch failed');
 
-      const [sigData, mktData, secData, etfData, macData, btcData, vcData, newsData] =
+      const [sigData, mktData, secData, etfData, macData, btcData, vcData, newsData, phData] =
         await Promise.all([
           sigRes.json(), mktRes.json(), secRes.json(), etfRes.json(),
           macRes.json(), btcRes.json(), vcRes.json(), newsRes.json(),
+          phRes.ok ? phRes.json() : Promise.resolve({ priceHistory: [] }),
         ]);
 
       setSignals(sigData.signals ?? []);
@@ -84,6 +89,7 @@ export function useDashboardData(wallet?: string): DashboardData {
       setVcActivity(vcData.vcActivity ?? []);
       setAiBriefing(newsData.aiBriefing ?? []);
       setNewsHeadlines(newsData.newsHeadlines ?? []);
+      setPriceHistory(phData.priceHistory ?? []);
       setLastUpdated(new Date());
     } catch {
       setIsError(true);
@@ -157,6 +163,7 @@ export function useDashboardData(wallet?: string): DashboardData {
     vcActivity,
     aiBriefing,
     newsHeadlines,
+    priceHistory,
     isLoading,
     isError,
     isConnected,

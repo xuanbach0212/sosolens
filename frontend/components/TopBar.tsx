@@ -1,5 +1,22 @@
 import type { ReactNode } from "react";
-import type { MarketStatus } from "@/types";
+import type { MarketStatus, PriceSnapshot } from "@/types";
+
+function Sparkline({ data, color }: { data: number[]; color: string }) {
+  if (data.length < 2) return null;
+  const w = 50, h = 18;
+  const min = Math.min(...data), max = Math.max(...data);
+  const range = max - min || 1;
+  const step = Math.max(1, Math.floor(data.length / 60));
+  const pts = data.filter((_, i) => i % step === 0);
+  const points = pts
+    .map((v, i) => `${(i / (pts.length - 1)) * w},${h - ((v - min) / range) * h}`)
+    .join(" ");
+  return (
+    <svg width={w} height={h} style={{ display: "inline-block", verticalAlign: "middle" }}>
+      <polyline points={points} fill="none" stroke={color} strokeWidth="1.2" />
+    </svg>
+  );
+}
 
 interface Props {
   market: MarketStatus | null;
@@ -8,9 +25,10 @@ interface Props {
   isConnected: boolean;
   lastUpdated: Date | null;
   walletBar?: ReactNode;
+  priceHistory: PriceSnapshot[];
 }
 
-export default function TopBar({ market, isLoading, isError, isConnected, lastUpdated, walletBar }: Props) {
+export default function TopBar({ market, isLoading, isError, isConnected, lastUpdated, walletBar, priceHistory }: Props) {
   const statusLabel = isError
     ? <span className="text-terminal-red">● RECONNECTING · POLLING FALLBACK</span>
     : isConnected && lastUpdated
@@ -20,6 +38,13 @@ export default function TopBar({ market, isLoading, isError, isConnected, lastUp
     : <span className="text-terminal-muted">● SOSOVALUE API</span>;
 
   const dash = "—";
+
+  const btcData = priceHistory.map(p => p.btcPrice);
+  const ethData = priceHistory.map(p => p.ethPrice);
+  const btcSparkColor = btcData.length >= 2 && btcData[btcData.length - 1] >= btcData[0]
+    ? "var(--color-terminal-green)" : "var(--color-terminal-red)";
+  const ethSparkColor = ethData.length >= 2 && ethData[ethData.length - 1] >= ethData[0]
+    ? "var(--color-terminal-green)" : "var(--color-terminal-red)";
 
   return (
     <div
@@ -42,18 +67,20 @@ export default function TopBar({ market, isLoading, isError, isConnected, lastUp
           )}
         </span>
         <span className="text-terminal-muted">│</span>
-        <span>
+        <span className="flex items-center gap-1">
           BTC <span className="text-terminal-text">{market?.btcPrice ?? dash}</span>{" "}
           <span className={market && parseFloat(market.btcChange) >= 0 ? "text-terminal-green" : "text-terminal-red"}>
             {market?.btcChange ?? ""}
           </span>
+          <Sparkline data={btcData} color={btcSparkColor} />
         </span>
         <span className="text-terminal-muted">│</span>
-        <span>
+        <span className="flex items-center gap-1">
           ETH <span className="text-terminal-text">{market?.ethPrice ?? dash}</span>{" "}
           <span className={market && parseFloat(market.ethChange) >= 0 ? "text-terminal-green" : "text-terminal-red"}>
             {market?.ethChange ?? ""}
           </span>
+          <Sparkline data={ethData} color={ethSparkColor} />
         </span>
         <span className="text-terminal-muted">│</span>
         <span>

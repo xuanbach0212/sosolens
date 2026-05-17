@@ -28,6 +28,7 @@ export default function Page() {
     vcActivity,
     aiBriefing,
     newsHeadlines,
+    priceHistory,
     isLoading,
     isError,
     isConnected,
@@ -56,6 +57,7 @@ export default function Page() {
           isError={isError}
           isConnected={isConnected}
           lastUpdated={lastUpdated}
+          priceHistory={priceHistory}
           walletBar={
             <WalletBar
               address={wallet.address}

@@ -98,3 +98,9 @@ export interface NewsHeadline {
   source: string;
   macroSensitive?: boolean;
 }
+
+export interface PriceSnapshot {
+  timestamp: string;
+  btcPrice: number;
+  ethPrice: number;
+}
