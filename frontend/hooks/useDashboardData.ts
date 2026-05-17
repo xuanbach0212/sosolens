@@ -24,6 +24,7 @@ export interface DashboardData {
   sectorFlows: SectorFlow[];
   etfFlows: EtfFlow[];
   macroStatus: MacroItem[];
+  riskEnvironment: string;
   btcTreasuries: BtcTreasury[];
   vcActivity: VcActivity[];
   aiBriefing: string[];
@@ -43,6 +44,7 @@ export function useDashboardData(wallet?: string): DashboardData {
   const [sectorFlows, setSectorFlows] = useState<SectorFlow[]>([]);
   const [etfFlows, setEtfFlows] = useState<EtfFlow[]>([]);
   const [macroStatus, setMacroStatus] = useState<MacroItem[]>([]);
+  const [riskEnvironment, setRiskEnvironment] = useState<string>("neutral");
   const [btcTreasuries, setBtcTreasuries] = useState<BtcTreasury[]>([]);
   const [vcActivity, setVcActivity] = useState<VcActivity[]>([]);
   const [aiBriefing, setAiBriefing] = useState<string[]>([]);
@@ -85,6 +87,7 @@ export function useDashboardData(wallet?: string): DashboardData {
       setSectorFlows(secData.sectorFlows ?? []);
       setEtfFlows(etfData.etfFlows ?? []);
       setMacroStatus(macData.macroStatus ?? []);
+      setRiskEnvironment(macData.riskEnvironment ?? "neutral");
       setBtcTreasuries(btcData.btcTreasuries ?? []);
       setVcActivity(vcData.vcActivity ?? []);
       setAiBriefing(newsData.aiBriefing ?? []);
@@ -131,6 +134,7 @@ export function useDashboardData(wallet?: string): DashboardData {
       if (snap.sectorFlows) setSectorFlows(snap.sectorFlows as SectorFlow[]);
       if (snap.etfFlows) setEtfFlows(snap.etfFlows as EtfFlow[]);
       if (snap.macroStatus) setMacroStatus(snap.macroStatus as MacroItem[]);
+      if (snap.riskEnvironment) setRiskEnvironment(snap.riskEnvironment as string);
       if (snap.btcTreasuries) setBtcTreasuries(snap.btcTreasuries as BtcTreasury[]);
       if (snap.vcActivity) setVcActivity(snap.vcActivity as VcActivity[]);
       if (snap.aiBriefing) setAiBriefing(snap.aiBriefing as string[]);
@@ -159,6 +163,7 @@ export function useDashboardData(wallet?: string): DashboardData {
     sectorFlows,
     etfFlows,
     macroStatus,
+    riskEnvironment,
     btcTreasuries,
     vcActivity,
     aiBriefing,

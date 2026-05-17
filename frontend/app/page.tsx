@@ -24,6 +24,7 @@ export default function Page() {
     sectorFlows,
     etfFlows,
     macroStatus,
+    riskEnvironment,
     btcTreasuries,
     vcActivity,
     aiBriefing,
@@ -58,6 +59,7 @@ export default function Page() {
           isConnected={isConnected}
           lastUpdated={lastUpdated}
           priceHistory={priceHistory}
+          riskEnvironment={riskEnvironment}
           walletBar={
             <WalletBar
               address={wallet.address}

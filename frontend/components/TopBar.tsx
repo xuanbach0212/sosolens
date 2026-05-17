@@ -10,6 +10,12 @@ function fearGreedDisplay(v: number): { className: string; style?: CSSProperties
   return { className: "text-terminal-green font-bold" };
 }
 
+function macroRegimeDisplay(regime: string): { label: string; className: string } {
+  if (regime === "risk-off") return { label: "RISK-OFF ⚠", className: "text-terminal-red" };
+  if (regime === "risk-on")  return { label: "RISK-ON",    className: "text-terminal-green" };
+  return                            { label: "NEUTRAL",    className: "text-terminal-yellow" };
+}
+
 function Sparkline({ data, color }: { data: number[]; color: string }) {
   if (data.length < 2) return null;
   const w = 50, h = 18;
@@ -35,9 +41,10 @@ interface Props {
   lastUpdated: Date | null;
   walletBar?: ReactNode;
   priceHistory: PriceSnapshot[];
+  riskEnvironment: string;
 }
 
-export default function TopBar({ market, isLoading, isError, isConnected, lastUpdated, walletBar, priceHistory }: Props) {
+export default function TopBar({ market, isLoading, isError, isConnected, lastUpdated, walletBar, priceHistory, riskEnvironment }: Props) {
   const prevFearGreed = useRef<number | null>(null);
 
   const statusLabel = isError
@@ -81,6 +88,13 @@ export default function TopBar({ market, isLoading, isError, isConnected, lastUp
           ) : (
             <span className="text-terminal-muted">{dash}</span>
           )}
+        </span>
+        <span className="text-terminal-muted">│</span>
+        <span>
+          MACRO:{" "}
+          <span className={macroRegimeDisplay(riskEnvironment).className}>
+            {macroRegimeDisplay(riskEnvironment).label}
+          </span>
         </span>
         <span className="text-terminal-muted">│</span>
         <span className="flex items-center gap-1">

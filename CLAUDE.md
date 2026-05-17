@@ -194,7 +194,7 @@ All issues done. Deployed on Raspberry Pi via Docker + Cloudflare Tunnel. 98/98 
 - ✅ #46 — Split refresh cadence (BTC/ETH price 30s vs agent hourly)
 - ✅ #47 — BTC/ETH price snapshot storage (`price_snapshots` table, 72h retention; `GET /api/price-history`; `btcPriceRaw`/`ethPriceRaw` in market status; 131/131 tests)
 - ✅ #51 — TopBar BTC/ETH 24h sparkline (inline SVG polyline, no new deps; fetches `/api/price-history?hours=24`; green if price up, red if down; downsamples to 60pts)
-- ⬜ #50 — TopBar MACRO REGIME status badge
+- ✅ #50 — TopBar MACRO REGIME status badge
 - ✅ #52 — TopBar Fear & Greed color coding + trend arrow
 
 **Deploy contract (one-time after Wave 2 env vars are set):**
