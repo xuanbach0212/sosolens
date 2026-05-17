@@ -41,6 +41,21 @@ async def _refresh_macro_cache() -> None:
         logger.warning("[agent] cache: macro_refresh failed: %s", exc)
 
 
+async def _refresh_market_cache() -> None:
+    """Refresh BTC/ETH price and broadcast a partial market update — runs every 30s."""
+    from backend.services.sosovalue import get_client
+    from backend.services.currency import fetch_market_status
+    client = get_client()
+    try:
+        market = await fetch_market_status(client)
+        cache.put("market_status", market)
+        logger.info("[agent] cache: market_status updated (30s)")
+    except Exception as exc:
+        logger.warning("[agent] cache: market_30s failed: %s", exc)
+        market = cache.get_or("market_status", MARKET_STATUS)
+    await broadcast({"market": market})
+
+
 async def _refresh_panel_cache() -> None:
     """Fetch panel data and store in cache. Market status is fetched first (highest priority).
     ETF and sector flows are skipped if detectors already cached them this run."""
@@ -290,6 +305,7 @@ def start_scheduler() -> AsyncIOScheduler:
     scheduler = AsyncIOScheduler()
     scheduler.add_job(run_agent, "interval", hours=1, id="agent_hourly")
     scheduler.add_job(_refresh_macro_cache, "interval", minutes=30, id="macro_30min")
+    scheduler.add_job(_refresh_market_cache, "interval", seconds=30, id="market_30s")
     scheduler.start()
-    logger.info("[agent] Scheduler started — run_agent hourly, macro refresh every 30 min")
+    logger.info("[agent] Scheduler started — run_agent hourly, macro 30min, market price 30s")
     return scheduler
