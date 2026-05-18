@@ -156,6 +156,7 @@ SUBSCRIPTION_CONTRACT_ADDRESS=    # set after deploying contracts/src/SoSoLensSu
 | GET | `/api/news` | `{aiBriefing: string[], newsHeadlines: NewsHeadline[]}` |
 | POST | `/api/agent/run` | `{status: "ok"}` — manually fires the agent loop |
 | GET | `/api/price-history?hours=N` | `{priceHistory: [{timestamp, btcPrice, ethPrice}]}` — last N hours of 30s snapshots (default 24h, max 168h) |
+| GET | `/api/etf-history?hours=N` | `{etfHistory: [{timestamp, btcFlow, ethFlow, totalFlow}]}` — hourly ETF snapshots (default 168h=7d, max 336h) |
 | GET | `/api/subscription/status?wallet=0x...` | `{subscribed: bool, expiry: int\|null}` — on-chain check via web3.py |
 | GET | `/api/stream?wallet=0x...` | SSE stream — premium only; sends `event: access_denied` if not subscribed |
 
@@ -200,6 +201,7 @@ All issues done. Deployed on Raspberry Pi via Docker + Cloudflare Tunnel. 98/98 
 - ✅ #52 — TopBar Fear & Greed color coding + trend arrow
 - ✅ #53 — MarketIntelligence sector flows color heatmap (`sectorFlowStyle()` in `MarketIntelligence.tsx`; 3-column grid; rgba opacity encodes magnitude 0.15–0.80; green positive / red negative; no new deps)
 - ✅ #55 — SignalFeed outcome timeline strip (`GET /api/signal-outcomes?hours=48` endpoint in `main.py`; `SignalOutcomeBlock` type; `signalOutcomes` state in hook; OUTCOME TRAIL (48H) strip in `SignalFeed.tsx` — last 36 blocks WIN=green/LOSS=red/SKIP+PENDING=muted; tooltip on hover; 7 new tests using StaticPool; 172/172 tests passing)
+- ✅ #54 — ETF flows 7-day inline bar chart (`EtfSnapshot` ORM in `models.py`; `fetch_etf_data()` returns 4-tuple with raw floats; `etf_raw` cache populated by detector + panel cache; `run_agent()` persists one row/hour, 14-day retention; `GET /api/etf-history` endpoint; `EtfBarChart` inline SVG in `MarketIntelligence.tsx` — 7 aggregated bars per BTC/ETH, green/red by sign; panel title → ETF FLOWS (7D); 11 new tests; 183/183 passing)
 
 **Deploy contract (one-time after Wave 2 env vars are set):**
 ```bash
