@@ -7,7 +7,7 @@ from backend.agent.db import get_db
 from backend.agent.detectors import DETECTORS
 from backend.agent.scorer import score_signal
 from backend.agent.explainer import explain_signal
-from backend.agent.models import Signal, SignalOutcome, PriceSnapshot
+from backend.agent.models import Signal, SignalOutcome, PriceSnapshot, EtfSnapshot
 import backend.cache as cache
 from backend.events import broadcast
 from backend.data.hardcoded import (
@@ -71,7 +71,7 @@ async def _refresh_panel_cache() -> None:
     """Fetch panel data and store in cache. Market status is fetched first (highest priority).
     ETF and sector flows are skipped if detectors already cached them this run."""
     from backend.services.sosovalue import get_client
-    from backend.services.etf import fetch_etf_snapshot
+    from backend.services.etf import fetch_etf_data
     from backend.services.sector import fetch_sector_flows
     from backend.services.btc_treasuries import fetch_btc_treasuries
     from backend.services.news import fetch_news_headlines
@@ -86,7 +86,9 @@ async def _refresh_panel_cache() -> None:
     # ETF and sector: skip if detectors already populated cache this run
     if not cache.get("etf_flows"):
         try:
-            cache.put("etf_flows", await fetch_etf_snapshot(client))
+            snapshot, total, btc_raw, eth_raw = await fetch_etf_data(client)
+            cache.put("etf_flows", snapshot)
+            cache.put("etf_raw", {"btc": btc_raw, "eth": eth_raw, "total": total})
             logger.info("[agent] cache: etf_flows updated")
         except Exception as exc:
             logger.warning("[agent] cache: etf_flows failed: %s", exc)
@@ -308,6 +310,19 @@ async def run_agent() -> None:
         except Exception as exc:
             logger.warning("[agent] outcome entry recording skipped: %s", exc)
     await check_outcomes()
+    etf_raw = cache.get("etf_raw")
+    if isinstance(etf_raw, dict) and (etf_raw.get("btc") or etf_raw.get("eth")):
+        cutoff = datetime.now(timezone.utc) - timedelta(days=14)
+        try:
+            with get_db() as db:
+                db.add(EtfSnapshot(
+                    btc_flow=etf_raw["btc"],
+                    eth_flow=etf_raw["eth"],
+                    total_flow=etf_raw["total"],
+                ))
+                db.execute(delete(EtfSnapshot).where(EtfSnapshot.recorded_at < cutoff))
+        except Exception as db_exc:
+            logger.warning("[agent] etf_snapshot write failed: %s", db_exc)
     await broadcast(build_full_snapshot())
     logger.info("[agent] run_agent done — %d signals upserted, SSE broadcast sent", generated)
 

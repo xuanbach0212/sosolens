@@ -111,3 +111,10 @@ export interface SignalOutcomeBlock {
   outcome: 'WIN' | 'LOSS' | 'SKIP' | 'PENDING';
   recordedAt: string;
 }
+
+export interface EtfFlowSnapshot {
+  timestamp: string;
+  btcFlow: number;
+  ethFlow: number;
+  totalFlow: number;
+}

@@ -13,6 +13,7 @@ import type {
   NewsHeadline,
   PriceSnapshot,
   SignalOutcomeBlock,
+  EtfFlowSnapshot,
 } from '@/types';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
@@ -32,6 +33,7 @@ export interface DashboardData {
   newsHeadlines: NewsHeadline[];
   priceHistory: PriceSnapshot[];
   signalOutcomes: SignalOutcomeBlock[];
+  etfHistory: EtfFlowSnapshot[];
   isLoading: boolean;
   isError: boolean;
   isConnected: boolean;
@@ -53,6 +55,7 @@ export function useDashboardData(wallet?: string): DashboardData {
   const [newsHeadlines, setNewsHeadlines] = useState<NewsHeadline[]>([]);
   const [priceHistory, setPriceHistory] = useState<PriceSnapshot[]>([]);
   const [signalOutcomes, setSignalOutcomes] = useState<SignalOutcomeBlock[]>([]);
+  const [etfHistory, setEtfHistory] = useState<EtfFlowSnapshot[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
@@ -62,7 +65,7 @@ export function useDashboardData(wallet?: string): DashboardData {
     setIsLoading(true);
     setIsError(false);
     try {
-      const [sigRes, mktRes, secRes, etfRes, macRes, btcRes, vcRes, newsRes, phRes, soRes] =
+      const [sigRes, mktRes, secRes, etfRes, macRes, btcRes, vcRes, newsRes, phRes, soRes, ehRes] =
         await Promise.all([
           fetch(`${API_BASE}/api/signals`),
           fetch(`${API_BASE}/api/market`),
@@ -74,16 +77,18 @@ export function useDashboardData(wallet?: string): DashboardData {
           fetch(`${API_BASE}/api/news`),
           fetch(`${API_BASE}/api/price-history?hours=24`),
           fetch(`${API_BASE}/api/signal-outcomes?hours=48`),
+          fetch(`${API_BASE}/api/etf-history?hours=168`),
         ]);
 
       if (!sigRes.ok || !mktRes.ok) throw new Error('fetch failed');
 
-      const [sigData, mktData, secData, etfData, macData, btcData, vcData, newsData, phData, soData] =
+      const [sigData, mktData, secData, etfData, macData, btcData, vcData, newsData, phData, soData, ehData] =
         await Promise.all([
           sigRes.json(), mktRes.json(), secRes.json(), etfRes.json(),
           macRes.json(), btcRes.json(), vcRes.json(), newsRes.json(),
           phRes.ok ? phRes.json() : Promise.resolve({ priceHistory: [] }),
           soRes.ok ? soRes.json() : Promise.resolve({ signalOutcomes: [] }),
+          ehRes.ok ? ehRes.json() : Promise.resolve({ etfHistory: [] }),
         ]);
 
       setSignals(sigData.signals ?? []);
@@ -99,6 +104,7 @@ export function useDashboardData(wallet?: string): DashboardData {
       setNewsHeadlines(newsData.newsHeadlines ?? []);
       setPriceHistory(phData.priceHistory ?? []);
       setSignalOutcomes(soData.signalOutcomes ?? []);
+      setEtfHistory(ehData.etfHistory ?? []);
       setLastUpdated(new Date());
     } catch {
       setIsError(true);
@@ -176,6 +182,7 @@ export function useDashboardData(wallet?: string): DashboardData {
     newsHeadlines,
     priceHistory,
     signalOutcomes,
+    etfHistory,
     isLoading,
     isError,
     isConnected,

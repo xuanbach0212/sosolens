@@ -31,6 +31,7 @@ export default function Page() {
     newsHeadlines,
     priceHistory,
     signalOutcomes,
+    etfHistory,
     isLoading,
     isError,
     isConnected,
@@ -98,6 +99,7 @@ export default function Page() {
           macroStatus={macroStatus}
           btcTreasuries={btcTreasuries}
           vcActivity={vcActivity}
+          etfHistory={etfHistory}
         />
         <BottomBar briefing={aiBriefing} news={newsHeadlines} lastUpdated={lastUpdated} />
       </div>

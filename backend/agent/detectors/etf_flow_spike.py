@@ -17,11 +17,12 @@ class ETFFlowSpikeDetector:
     async def run(self) -> list[dict]:
         try:
             client = get_client()
-            snapshot, total = await fetch_etf_data(client)
+            snapshot, total, btc_raw, eth_raw = await fetch_etf_data(client)
         except Exception as exc:
             logger.warning("[etf_spike] fetch failed: %s", exc)
             return []
         cache.put("etf_flows", snapshot)
+        cache.put("etf_raw", {"btc": btc_raw, "eth": eth_raw, "total": total})
 
         btc_token, eth_token = await fetch_btc_eth_prices(client)
 

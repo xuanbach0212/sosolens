@@ -21,7 +21,7 @@ from backend.data.hardcoded import (
     NEWS_HEADLINES,
 )
 from backend.agent.db import init_db, get_db
-from backend.agent.models import Signal, PriceSnapshot, SignalOutcome
+from backend.agent.models import Signal, PriceSnapshot, SignalOutcome, EtfSnapshot
 from backend.agent.runner import run_agent, start_scheduler, build_full_snapshot, _enrich_with_outcomes
 import backend.cache as cache
 
@@ -112,6 +112,28 @@ def get_price_history(hours: int = Query(default=24, ge=1, le=168)) -> dict:
             for r in rows
         ]
     return {"priceHistory": history}
+
+
+@app.get("/api/etf-history")
+def get_etf_history(hours: int = Query(default=168, ge=1, le=336)) -> dict:
+    from sqlalchemy import select
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+    with get_db() as db:
+        rows = db.scalars(
+            select(EtfSnapshot)
+            .where(EtfSnapshot.recorded_at >= cutoff)
+            .order_by(EtfSnapshot.recorded_at.asc())
+        ).all()
+        history = [
+            {
+                "timestamp": r.recorded_at.replace(tzinfo=timezone.utc).isoformat(),
+                "btcFlow": r.btc_flow,
+                "ethFlow": r.eth_flow,
+                "totalFlow": r.total_flow,
+            }
+            for r in rows
+        ]
+    return {"etfHistory": history}
 
 
 @app.get("/api/signal-outcomes")
