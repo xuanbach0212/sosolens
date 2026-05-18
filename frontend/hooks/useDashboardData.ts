@@ -34,6 +34,7 @@ export interface DashboardData {
   priceHistory: PriceSnapshot[];
   signalOutcomes: SignalOutcomeBlock[];
   etfHistory: EtfFlowSnapshot[];
+  isDemoData: boolean;
   isLoading: boolean;
   isError: boolean;
   isConnected: boolean;
@@ -56,6 +57,7 @@ export function useDashboardData(wallet?: string): DashboardData {
   const [priceHistory, setPriceHistory] = useState<PriceSnapshot[]>([]);
   const [signalOutcomes, setSignalOutcomes] = useState<SignalOutcomeBlock[]>([]);
   const [etfHistory, setEtfHistory] = useState<EtfFlowSnapshot[]>([]);
+  const [isDemoData, setIsDemoData] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
@@ -94,6 +96,7 @@ export function useDashboardData(wallet?: string): DashboardData {
       setSignals(sigData.signals ?? []);
       setStats(sigData.stats ?? { today: 0, thisWeek: 0, accuracy: 0 });
       setMarket(mktData.market ?? null);
+      setIsDemoData(mktData.is_fallback ?? false);
       setSectorFlows(secData.sectorFlows ?? []);
       setEtfFlows(etfData.etfFlows ?? []);
       setMacroStatus(macData.macroStatus ?? []);
@@ -143,6 +146,7 @@ export function useDashboardData(wallet?: string): DashboardData {
       if (snap.signals) setSignals(snap.signals as Signal[]);
       if (snap.stats) setStats(snap.stats as SignalStats);
       if (snap.market) setMarket(snap.market as MarketStatus);
+      if (typeof snap.is_fallback === 'boolean') setIsDemoData(snap.is_fallback);
       if (snap.sectorFlows) setSectorFlows(snap.sectorFlows as SectorFlow[]);
       if (snap.etfFlows) setEtfFlows(snap.etfFlows as EtfFlow[]);
       if (snap.macroStatus) setMacroStatus(snap.macroStatus as MacroItem[]);
@@ -183,6 +187,7 @@ export function useDashboardData(wallet?: string): DashboardData {
     priceHistory,
     signalOutcomes,
     etfHistory,
+    isDemoData,
     isLoading,
     isError,
     isConnected,

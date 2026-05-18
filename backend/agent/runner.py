@@ -252,6 +252,7 @@ def build_full_snapshot() -> dict:
         "signals": signals,
         "stats": stats,
         "market": cache.get_or("market_status", MARKET_STATUS),
+        "is_fallback": not cache.has("market_status"),
         "sectorFlows": cache.get_or("sector_flows", SECTOR_FLOWS),
         "etfFlows": cache.get_or("etf_flows", ETF_FLOWS),
         **macro,
@@ -329,9 +330,10 @@ async def run_agent() -> None:
 
 def start_scheduler() -> AsyncIOScheduler:
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(run_agent, "interval", hours=1, id="agent_hourly")
+    scheduler.add_job(run_agent, "interval", hours=1, id="agent_hourly", max_instances=1, coalesce=True)
     scheduler.add_job(_refresh_macro_cache, "interval", minutes=30, id="macro_30min")
-    scheduler.add_job(_refresh_market_cache, "interval", seconds=30, id="market_30s")
+    scheduler.add_job(_refresh_market_cache, "interval", seconds=30, id="market_30s",
+                      max_instances=2, coalesce=False, misfire_grace_time=15)
     scheduler.start()
     logger.info("[agent] Scheduler started — run_agent hourly, macro 30min, market price 30s")
     return scheduler

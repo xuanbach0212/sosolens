@@ -32,6 +32,7 @@ export default function Page() {
     priceHistory,
     signalOutcomes,
     etfHistory,
+    isDemoData,
     isLoading,
     isError,
     isConnected,
@@ -62,6 +63,7 @@ export default function Page() {
           lastUpdated={lastUpdated}
           priceHistory={priceHistory}
           riskEnvironment={riskEnvironment}
+          isDemoData={isDemoData}
           walletBar={
             <WalletBar
               address={wallet.address}

@@ -90,7 +90,7 @@ def get_signals(wallet: str | None = Query(default=None)) -> dict:
 
 @app.get("/api/market")
 def get_market() -> dict:
-    return {"market": cache.get_or("market_status", MARKET_STATUS)}
+    return {"market": cache.get_or("market_status", MARKET_STATUS), "is_fallback": not cache.has("market_status")}
 
 
 @app.get("/api/price-history")

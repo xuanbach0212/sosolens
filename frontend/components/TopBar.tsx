@@ -42,9 +42,10 @@ interface Props {
   walletBar?: ReactNode;
   priceHistory: PriceSnapshot[];
   riskEnvironment: string;
+  isDemoData?: boolean;
 }
 
-export default function TopBar({ market, isLoading, isError, isConnected, lastUpdated, walletBar, priceHistory, riskEnvironment }: Props) {
+export default function TopBar({ market, isLoading, isError, isConnected, lastUpdated, walletBar, priceHistory, riskEnvironment, isDemoData }: Props) {
   const prevFearGreed = useRef<number | null>(null);
 
   const statusLabel = isError
@@ -76,8 +77,13 @@ export default function TopBar({ market, isLoading, isError, isConnected, lastUp
     >
       <div className="flex items-center gap-6 text-xs">
         <span className="font-bold text-terminal-green tracking-widest">
-          SOSOALPHA <span className="animate-pulse">●</span>LIVE
+          SOSOLENS <span className="animate-pulse">●</span>LIVE
         </span>
+        {isDemoData && (
+          <span className="text-terminal-yellow text-xs border border-terminal-yellow px-1 tracking-wider">
+            DEMO DATA
+          </span>
+        )}
         <span className="text-terminal-muted">│</span>
         <span>
           MARKET:{" "}

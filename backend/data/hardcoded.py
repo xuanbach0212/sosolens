@@ -170,15 +170,15 @@ SIGNAL_STATS: dict = {"today": 3, "thisWeek": 14, "accuracy": 71}
 MARKET_STATUS: dict = {
     "sentiment": "RISK-ON",
     "sentimentPositive": True,
-    "btcPrice": "$98,420",
-    "btcChange": "+2.1%",
-    "ethPrice": "$3,210",
-    "ethChange": "+1.8%",
-    "mcap": "$3.42T",
-    "mcapChange": "+1.9%",
-    "vol": "$124B",
-    "volChange": "+12%",
-    "fearGreed": 72,
+    "btcPrice": "$103,500",
+    "btcChange": "+1.2%",
+    "ethPrice": "$2,480",
+    "ethChange": "+0.8%",
+    "mcap": "$3.71T",
+    "mcapChange": "+1.1%",
+    "vol": "$98B",
+    "volChange": "+4%",
+    "fearGreed": 58,
     "fearGreedLabel": "GREED",
 }
 
@@ -195,11 +195,11 @@ SECTOR_FLOWS: list[dict] = [
 ]
 
 ETF_FLOWS: list[dict] = [
-    {"name": "BTC ETF", "flow": "+$380M", "arrows": "↑↑↑", "positive": True},
-    {"name": "ETH ETF", "flow": "+$120M", "arrows": "↑↑", "positive": True},
-    {"name": "SOL ETF", "flow": "+$42M", "arrows": "↑", "positive": True},
-    {"name": "Other", "flow": "+$28M", "arrows": "↑", "positive": True},
-    {"name": "TOTAL", "flow": "+$570M", "arrows": "↑↑↑", "positive": True, "total": True},
+    {"name": "BTC ETF", "flow": "+$48M", "arrows": "↑", "positive": True},
+    {"name": "ETH ETF", "flow": "-$12M", "arrows": "↓", "positive": False},
+    {"name": "SOL ETF", "flow": "+$8M", "arrows": "↑", "positive": True},
+    {"name": "Other", "flow": "+$4M", "arrows": "↑", "positive": True},
+    {"name": "TOTAL", "flow": "+$48M", "arrows": "↑", "positive": True, "total": True},
 ]
 
 MACRO_STATUS: list[dict] = [
