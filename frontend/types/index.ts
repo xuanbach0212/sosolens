@@ -104,3 +104,10 @@ export interface PriceSnapshot {
   btcPrice: number;
   ethPrice: number;
 }
+
+export interface SignalOutcomeBlock {
+  detectorId: string;
+  signalType: SignalType;
+  outcome: 'WIN' | 'LOSS' | 'SKIP' | 'PENDING';
+  recordedAt: string;
+}

@@ -199,6 +199,7 @@ All issues done. Deployed on Raspberry Pi via Docker + Cloudflare Tunnel. 98/98 
 - ✅ #50 — TopBar MACRO REGIME status badge
 - ✅ #52 — TopBar Fear & Greed color coding + trend arrow
 - ✅ #53 — MarketIntelligence sector flows color heatmap (`sectorFlowStyle()` in `MarketIntelligence.tsx`; 3-column grid; rgba opacity encodes magnitude 0.15–0.80; green positive / red negative; no new deps)
+- ✅ #55 — SignalFeed outcome timeline strip (`GET /api/signal-outcomes?hours=48` endpoint in `main.py`; `SignalOutcomeBlock` type; `signalOutcomes` state in hook; OUTCOME TRAIL (48H) strip in `SignalFeed.tsx` — last 36 blocks WIN=green/LOSS=red/SKIP+PENDING=muted; tooltip on hover; 7 new tests using StaticPool; 172/172 tests passing)
 
 **Deploy contract (one-time after Wave 2 env vars are set):**
 ```bash

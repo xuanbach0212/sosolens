@@ -30,6 +30,7 @@ export default function Page() {
     aiBriefing,
     newsHeadlines,
     priceHistory,
+    signalOutcomes,
     isLoading,
     isError,
     isConnected,
@@ -79,6 +80,7 @@ export default function Page() {
           stats={stats}
           isLoading={isLoading}
           isPremium={isPremium}
+          signalOutcomes={signalOutcomes}
         />
         {selectedSignal ? (
           <SignalDetail signal={selectedSignal} />

@@ -1,6 +1,6 @@
 'use client';
 
-import type { Signal, SignalType } from "@/types";
+import type { Signal, SignalType, SignalOutcomeBlock } from "@/types";
 
 const TYPE_COLOR: Record<SignalType, string> = {
   BUY: "text-terminal-green border-terminal-green",
@@ -23,9 +23,17 @@ interface Props {
   stats: { today: number; thisWeek: number; accuracy: number };
   isLoading: boolean;
   isPremium?: boolean | null;
+  signalOutcomes?: SignalOutcomeBlock[];
 }
 
-export default function SignalFeed({ signals, selectedId, onSelect, stats, isLoading, isPremium }: Props) {
+const OUTCOME_COLOR: Record<string, string> = {
+  WIN:     "bg-terminal-green",
+  LOSS:    "bg-terminal-red",
+  SKIP:    "bg-terminal-muted opacity-40",
+  PENDING: "bg-terminal-muted opacity-20",
+};
+
+export default function SignalFeed({ signals, selectedId, onSelect, stats, isLoading, isPremium, signalOutcomes = [] }: Props) {
   return (
     <div
       className="border-r border-terminal-border flex flex-col overflow-hidden"
@@ -69,6 +77,23 @@ export default function SignalFeed({ signals, selectedId, onSelect, stats, isLoa
               </button>
             );
           })
+        )}
+      </div>
+
+      <div className="px-3 py-2 border-t border-terminal-border">
+        <div className="text-[9px] text-terminal-muted tracking-widest mb-1">OUTCOME TRAIL (48H)</div>
+        {signalOutcomes.length === 0 ? (
+          <div className="text-[9px] text-terminal-muted italic">no outcomes yet</div>
+        ) : (
+          <div className="flex gap-px flex-wrap">
+            {signalOutcomes.slice(-36).map((o, i) => (
+              <div
+                key={i}
+                title={`${o.signalType} · ${o.outcome} · ${new Date(o.recordedAt).toLocaleDateString()}`}
+                className={`w-2.5 h-3.5 rounded-sm ${OUTCOME_COLOR[o.outcome] ?? OUTCOME_COLOR.PENDING}`}
+              />
+            ))}
+          </div>
         )}
       </div>
 
