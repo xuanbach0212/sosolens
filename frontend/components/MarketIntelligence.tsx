@@ -21,6 +21,18 @@ function PanelHeader({ title }: { title: string }) {
 
 const MAX_FLOW = 40;
 
+function sectorFlowStyle(change: number): { bg: string; textClass: string } {
+  const intensity = Math.min(Math.abs(change) / MAX_FLOW, 1);
+  const alpha = 0.15 + intensity * 0.65;
+  if (change > 0) {
+    return { bg: `rgba(0, 255, 136, ${alpha.toFixed(2)})`, textClass: "text-terminal-green" };
+  }
+  if (change < 0) {
+    return { bg: `rgba(255, 68, 68, ${alpha.toFixed(2)})`, textClass: "text-terminal-red" };
+  }
+  return { bg: "rgba(255,255,255,0.04)", textClass: "text-terminal-muted" };
+}
+
 export default function MarketIntelligence({
   sectorFlows,
   etfFlows,
@@ -39,27 +51,19 @@ export default function MarketIntelligence({
         {sectorFlows.length === 0 && (
           <div className="text-[10px] text-terminal-muted italic">Loading...</div>
         )}
-        <div className="space-y-0.5">
+        <div className="grid grid-cols-3 gap-1">
           {sectorFlows.map((s) => {
-            const pct = Math.abs(s.change) / MAX_FLOW;
-            const width = Math.max(pct * 100, 2);
-            const positive = s.change >= 0;
+            const { bg, textClass } = sectorFlowStyle(s.change);
+            const positive = s.change > 0;
             return (
-              <div key={s.name} className="flex items-center gap-1.5">
-                <span className="text-[10px] text-terminal-muted w-12 shrink-0">{s.name}</span>
-                <div className="flex-1 h-2 bg-terminal-border rounded-sm overflow-hidden">
-                  <div
-                    className={`h-full rounded-sm ${positive ? "bg-terminal-green" : "bg-terminal-red"}`}
-                    style={{ width: `${width}%` }}
-                  />
-                </div>
-                <span
-                  className={`text-[10px] w-10 text-right shrink-0 ${
-                    positive ? "text-terminal-green" : "text-terminal-red"
-                  }`}
-                >
-                  {positive ? "+" : ""}
-                  {s.change}%
+              <div
+                key={s.name}
+                className="rounded px-1.5 py-1.5 flex flex-col gap-0.5"
+                style={{ backgroundColor: bg }}
+              >
+                <span className="text-[9px] text-terminal-muted leading-none truncate">{s.name}</span>
+                <span className={`text-[10px] font-bold leading-none ${textClass}`}>
+                  {positive ? "+" : ""}{s.change}%
                 </span>
               </div>
             );
