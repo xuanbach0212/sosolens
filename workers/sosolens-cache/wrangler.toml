@@ -1,0 +1,13 @@
+name = "sosolens-cache"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+[[kv_namespaces]]
+binding = "SOSOLENS_CACHE"
+id = ""
+# Run to create: npx wrangler kv:namespace create SOSOLENS_CACHE
+# Then paste the returned id above.
+
+# Secrets — set via CLI, never committed:
+#   npx wrangler secret put PUSH_SECRET    (must match CACHE_PUSH_SECRET in backend/.env)
+#   npx wrangler secret put UPSTREAM_URL   (Pi Cloudflare Tunnel URL, e.g. https://sosolens.example.com)

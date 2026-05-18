@@ -1,8 +1,11 @@
+import asyncio
 import logging
+import os
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy import select, delete
+import httpx
 from backend.agent.db import get_db
 from backend.agent.detectors import DETECTORS
 from backend.agent.scorer import score_signal
@@ -17,6 +20,24 @@ from backend.data.hardcoded import (
 )
 
 logger = logging.getLogger(__name__)
+
+_CACHE_WORKER_URL = os.environ.get("CACHE_WORKER_URL", "")
+_CACHE_PUSH_SECRET = os.environ.get("CACHE_PUSH_SECRET", "")
+
+
+async def _push_to_cache(snapshot: dict) -> None:
+    if not _CACHE_WORKER_URL or not _CACHE_PUSH_SECRET:
+        return
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            await client.post(
+                f"{_CACHE_WORKER_URL}/api/push",
+                json=snapshot,
+                headers={"X-Push-Secret": _CACHE_PUSH_SECRET},
+            )
+        logger.info("[cache] push ok — %d keys", len(snapshot))
+    except Exception as exc:
+        logger.warning("[cache] push failed: %s", exc)
 
 
 async def _refresh_macro_cache() -> None:
@@ -65,6 +86,7 @@ async def _refresh_market_cache() -> None:
             except Exception as db_exc:
                 logger.warning("[agent] price_snapshot write failed: %s", db_exc)
     await broadcast({"market": market})
+    asyncio.create_task(_push_to_cache(build_full_snapshot()))
 
 
 async def _refresh_panel_cache() -> None:
@@ -324,7 +346,9 @@ async def run_agent() -> None:
                 db.execute(delete(EtfSnapshot).where(EtfSnapshot.recorded_at < cutoff))
         except Exception as db_exc:
             logger.warning("[agent] etf_snapshot write failed: %s", db_exc)
-    await broadcast(build_full_snapshot())
+    snapshot = build_full_snapshot()
+    await broadcast(snapshot)
+    asyncio.create_task(_push_to_cache(snapshot))
     logger.info("[agent] run_agent done — %d signals upserted, SSE broadcast sent", generated)
 
 
