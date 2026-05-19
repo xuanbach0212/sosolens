@@ -24,31 +24,6 @@ logger = logging.getLogger(__name__)
 _CACHE_WORKER_URL = os.environ.get("CACHE_WORKER_URL", "")
 _CACHE_PUSH_SECRET = os.environ.get("CACHE_PUSH_SECRET", "")
 
-_notified_signal_states: dict[str, str] = {}
-_telegram: "TelegramNotifier | None" = None
-
-
-async def _notify_new_signals(signals: list[dict]) -> None:
-    global _notified_signal_states, _telegram
-    from backend.services.telegram import TelegramNotifier
-    if _telegram is None:
-        _telegram = TelegramNotifier()
-    if not _telegram.enabled:
-        return
-    for signal in signals:
-        sig_id = signal.get("id", "")
-        sig_type = signal.get("type", "")
-        if not sig_id or sig_type not in ("BUY", "AVOID"):
-            continue
-        if _notified_signal_states.get(sig_id) == sig_type:
-            continue
-        try:
-            await _telegram.send_signal_alert(signal)
-            _notified_signal_states[sig_id] = sig_type
-            logger.info("[telegram] alert sent: %s %s", sig_type, sig_id)
-        except Exception as exc:
-            logger.warning("[telegram] alert failed: %s", exc)
-
 
 async def _push_to_cache(snapshot: dict) -> None:
     if not _CACHE_WORKER_URL or not _CACHE_PUSH_SECRET:
@@ -374,7 +349,6 @@ async def run_agent() -> None:
     snapshot = build_full_snapshot()
     await broadcast(snapshot)
     asyncio.create_task(_push_to_cache(snapshot))
-    asyncio.create_task(_notify_new_signals(snapshot.get("signals", [])))
     logger.info("[agent] run_agent done — %d signals upserted, SSE broadcast sent", generated)
 
 
