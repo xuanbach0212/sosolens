@@ -24,6 +24,8 @@ logger = logging.getLogger(__name__)
 _CACHE_WORKER_URL = os.environ.get("CACHE_WORKER_URL", "")
 _CACHE_PUSH_SECRET = os.environ.get("CACHE_PUSH_SECRET", "")
 
+_background_tasks: set[asyncio.Task] = set()
+
 
 async def _push_to_cache(snapshot: dict) -> None:
     if not _CACHE_WORKER_URL or not _CACHE_PUSH_SECRET:
@@ -86,7 +88,9 @@ async def _refresh_market_cache() -> None:
             except Exception as db_exc:
                 logger.warning("[agent] price_snapshot write failed: %s", db_exc)
     await broadcast({"market": market})
-    asyncio.create_task(_push_to_cache(build_full_snapshot()))
+    _t = asyncio.create_task(_push_to_cache(build_full_snapshot()))
+    _background_tasks.add(_t)
+    _t.add_done_callback(_background_tasks.discard)
 
 
 async def _refresh_panel_cache() -> None:
@@ -348,7 +352,9 @@ async def run_agent() -> None:
             logger.warning("[agent] etf_snapshot write failed: %s", db_exc)
     snapshot = build_full_snapshot()
     await broadcast(snapshot)
-    asyncio.create_task(_push_to_cache(snapshot))
+    _t = asyncio.create_task(_push_to_cache(snapshot))
+    _background_tasks.add(_t)
+    _t.add_done_callback(_background_tasks.discard)
     logger.info("[agent] run_agent done — %d signals upserted, SSE broadcast sent", generated)
 
 
@@ -357,7 +363,7 @@ def start_scheduler() -> AsyncIOScheduler:
     scheduler.add_job(run_agent, "interval", hours=1, id="agent_hourly", max_instances=1, coalesce=True)
     scheduler.add_job(_refresh_macro_cache, "interval", minutes=30, id="macro_30min")
     scheduler.add_job(_refresh_market_cache, "interval", seconds=30, id="market_30s",
-                      max_instances=2, coalesce=False, misfire_grace_time=15)
+                      max_instances=1, coalesce=True, misfire_grace_time=15)
     scheduler.start()
     logger.info("[agent] Scheduler started — run_agent hourly, macro 30min, market price 30s")
     return scheduler

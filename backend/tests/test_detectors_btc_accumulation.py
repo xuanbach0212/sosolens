@@ -100,7 +100,8 @@ async def test_no_signal_all_zero(detector):
     gc, fetch = _patch(_ALL_ZERO)
     with gc, fetch:
         signals = await detector.run()
-    assert signals == []
+    assert len(signals) == 1
+    assert signals[0]["type"] == "WATCH"
 
 
 async def test_no_signal_fewer_than_two_entries(detector):

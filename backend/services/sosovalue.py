@@ -41,7 +41,10 @@ class SoSoValueClient:
                 r.raise_for_status()
                 return r.json()
             except httpx.HTTPStatusError as exc:
-                if exc.response.status_code in (401, 403) or attempt == 2:
+                status = exc.response.status_code
+                if status != 429 and status < 500:
+                    raise
+                if attempt == 2:
                     raise
                 await asyncio.sleep(2 ** attempt)
 

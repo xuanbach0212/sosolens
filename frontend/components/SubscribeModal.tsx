@@ -43,14 +43,19 @@ export default function SubscribeModal({
     <div
       className="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
       onClick={onClose}
+      onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="subscribe-modal-title"
+        tabIndex={-1}
         className="bg-terminal-panel border border-terminal-border w-[380px] font-mono text-xs"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-2 border-b border-terminal-border">
-          <span className="font-bold tracking-widest text-terminal-green">SOSOLENS PREMIUM</span>
+          <span id="subscribe-modal-title" className="font-bold tracking-widest text-terminal-green">SOSOLENS PREMIUM</span>
           <button
             onClick={onClose}
             className="text-terminal-muted hover:text-terminal-text cursor-pointer"

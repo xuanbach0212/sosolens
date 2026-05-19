@@ -60,7 +60,7 @@ export default function WalletBar({
 
   return (
     <span className="text-[10px] flex items-center gap-2">
-      <span className="text-terminal-yellow">FREE TIER</span>
+      <span className="text-terminal-yellow">FREE TIER · ⚠ DELAYED 1H</span>
       <span className="text-terminal-muted">·</span>
       <span className="text-terminal-muted">{truncate(address)}</span>
       <span className="text-terminal-muted">·</span>

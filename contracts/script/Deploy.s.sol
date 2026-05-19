@@ -9,6 +9,7 @@ address constant USDC_BASE_SEPOLIA = 0x036CbD53842c5426634e7929541eC2318f3dCF7e;
 
 contract Deploy is Script {
     function run() external {
+        require(block.chainid == 84532, "Deploy only on Base Sepolia");
         vm.startBroadcast();
         SoSoLensSubscription sub = new SoSoLensSubscription(USDC_BASE_SEPOLIA);
         console.log("SoSoLensSubscription deployed:", address(sub));

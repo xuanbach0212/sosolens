@@ -69,7 +69,7 @@ export function useDashboardData(wallet?: string): DashboardData {
     try {
       const [sigRes, mktRes, secRes, etfRes, macRes, btcRes, vcRes, newsRes, phRes, soRes, ehRes] =
         await Promise.all([
-          fetch(`${API_BASE}/api/signals`),
+          fetch(`${API_BASE}/api/signals${wallet ? `?wallet=${encodeURIComponent(wallet)}` : ''}`),
           fetch(`${API_BASE}/api/market`),
           fetch(`${API_BASE}/api/sector-flows`),
           fetch(`${API_BASE}/api/etf-flows`),
@@ -84,10 +84,20 @@ export function useDashboardData(wallet?: string): DashboardData {
 
       if (!sigRes.ok || !mktRes.ok) throw new Error('fetch failed');
 
+      const safeJson = async <T>(res: Response, fallback: T): Promise<T> => {
+        if (!res.ok) return fallback;
+        try { return await res.json(); } catch { return fallback; }
+      };
+
       const [sigData, mktData, secData, etfData, macData, btcData, vcData, newsData, phData, soData, ehData] =
         await Promise.all([
-          sigRes.json(), mktRes.json(), secRes.json(), etfRes.json(),
-          macRes.json(), btcRes.json(), vcRes.json(), newsRes.json(),
+          sigRes.json(), mktRes.json(),
+          safeJson(secRes, { sectorFlows: [] }),
+          safeJson(etfRes, { etfFlows: [] }),
+          safeJson(macRes, { macroStatus: [], riskEnvironment: 'neutral' }),
+          safeJson(btcRes, { btcTreasuries: [] }),
+          safeJson(vcRes, { vcActivity: [] }),
+          safeJson(newsRes, { aiBriefing: [], newsHeadlines: [] }),
           phRes.ok ? phRes.json() : Promise.resolve({ priceHistory: [] }),
           soRes.ok ? soRes.json() : Promise.resolve({ signalOutcomes: [] }),
           ehRes.ok ? ehRes.json() : Promise.resolve({ etfHistory: [] }),
@@ -114,7 +124,7 @@ export function useDashboardData(wallet?: string): DashboardData {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [wallet]);
 
   useEffect(() => {
     // Load data immediately via REST so the page never hangs waiting for SSE

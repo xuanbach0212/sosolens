@@ -21,8 +21,8 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
   const w = 50, h = 18;
   const min = Math.min(...data), max = Math.max(...data);
   const range = max - min || 1;
-  const step = Math.max(1, Math.floor(data.length / 60));
-  const pts = data.filter((_, i) => i % step === 0);
+  const step = Math.max(1, Math.ceil(data.length / 60));
+  const pts = data.filter((_, i) => i % step === 0).slice(0, 60);
   const points = pts
     .map((v, i) => `${(i / (pts.length - 1)) * w},${h - ((v - min) / range) * h}`)
     .join(" ");

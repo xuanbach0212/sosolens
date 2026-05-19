@@ -18,8 +18,11 @@ contract SoSoLensSubscription {
 
     error NotOwner();
     error TransferFailed();
+    error InvalidUSDC();
+    error InvalidRecipient();
 
     constructor(address _usdc) {
+        if (_usdc == address(0)) revert InvalidUSDC();
         usdc = IERC20(_usdc);
         owner = msg.sender;
     }
@@ -44,6 +47,7 @@ contract SoSoLensSubscription {
     /// @notice Owner withdraws all USDC to `to`.
     function withdraw(address to) external {
         if (msg.sender != owner) revert NotOwner();
+        if (to == address(0)) revert InvalidRecipient();
         uint256 balance = usdc.balanceOf(address(this));
         if (!usdc.transfer(to, balance)) revert TransferFailed();
         emit Withdrawn(to, balance);

@@ -13,7 +13,7 @@ _BEARISH = frozenset([
     "crash", "drop", "fall", "decline", "fear", "ban", "hack",
     "exploit", "breach", "regulation", "fine", "suspend", "halt",
     "warning", "bear", "outflow", "liquidat", "probe", "investigat",
-    "sanction",
+    "sanction", "panic",
 ])
 
 _TOKEN_MAP = {

@@ -17,14 +17,12 @@ class BtcAccumulationDetector:
             logger.warning("[btc_accumulation] fetch failed: %s", exc)
             return []
 
+        data = data[:5]
         if not data or len(data) < 2:
             return []
 
         changes = [_parse_change(e.get("weeklyChange", "±0")) for e in data]
         net_weekly = sum(changes)
-
-        if net_weekly == 0:
-            return []
 
         buying = [(data[i], changes[i]) for i in range(len(data)) if changes[i] > 0]
         selling = [(data[i], changes[i]) for i in range(len(data)) if changes[i] < 0]
