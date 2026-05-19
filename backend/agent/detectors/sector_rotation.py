@@ -8,6 +8,18 @@ logger = logging.getLogger(__name__)
 ROTATION_THRESHOLD = 2.0   # leader must be above this % (24h price change)
 WATCH_THRESHOLD = 1.0
 SPREAD_THRESHOLD = 5.0     # leader minus laggard spread for BUY
+
+# Map sector display names → representative token for SoDEX trade link
+SECTOR_TOKEN = {
+    "AI":      "FET",
+    "DeFi":    "UNI",
+    "RWA":     "ONDO",
+    "Layer 1": "ETH",
+    "Layer 2": "OP",
+    "Gaming":  "GALA",
+    "NFT":     "BLUR",
+    "Meme":    "DOGE",
+}
 WATCH_SPREAD = 3.0
 
 
@@ -61,7 +73,7 @@ class SectorRotationDetector:
             ],
             "pastSignals": [],
             "accuracy": 0,
-            "sodexPair": f"BUY {leader['name'].upper()}/USDC" if sig_type == "BUY" else "—",
+            "sodexPair": f"BUY {SECTOR_TOKEN.get(leader['name'], leader['name'].upper())}/USDC" if sig_type == "BUY" else "—",
             "sodexSlippage": "1%",
             "sodexEstOutput": "—",
         }]

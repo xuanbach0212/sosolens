@@ -98,3 +98,23 @@ export interface NewsHeadline {
   source: string;
   macroSensitive?: boolean;
 }
+
+export interface PriceSnapshot {
+  timestamp: string;
+  btcPrice: number;
+  ethPrice: number;
+}
+
+export interface SignalOutcomeBlock {
+  detectorId: string;
+  signalType: SignalType;
+  outcome: 'WIN' | 'LOSS' | 'SKIP' | 'PENDING';
+  recordedAt: string;
+}
+
+export interface EtfFlowSnapshot {
+  timestamp: string;
+  btcFlow: number;
+  ethFlow: number;
+  totalFlow: number;
+}

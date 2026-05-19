@@ -11,6 +11,9 @@ import type {
   BtcTreasury,
   VcActivity,
   NewsHeadline,
+  PriceSnapshot,
+  SignalOutcomeBlock,
+  EtfFlowSnapshot,
 } from '@/types';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
@@ -23,10 +26,15 @@ export interface DashboardData {
   sectorFlows: SectorFlow[];
   etfFlows: EtfFlow[];
   macroStatus: MacroItem[];
+  riskEnvironment: string;
   btcTreasuries: BtcTreasury[];
   vcActivity: VcActivity[];
   aiBriefing: string[];
   newsHeadlines: NewsHeadline[];
+  priceHistory: PriceSnapshot[];
+  signalOutcomes: SignalOutcomeBlock[];
+  etfHistory: EtfFlowSnapshot[];
+  isDemoData: boolean;
   isLoading: boolean;
   isError: boolean;
   isConnected: boolean;
@@ -34,17 +42,22 @@ export interface DashboardData {
   refresh: () => void;
 }
 
-export function useDashboardData(): DashboardData {
+export function useDashboardData(wallet?: string): DashboardData {
   const [signals, setSignals] = useState<Signal[]>([]);
   const [stats, setStats] = useState<SignalStats>({ today: 0, thisWeek: 0, accuracy: 0 });
   const [market, setMarket] = useState<MarketStatus | null>(null);
   const [sectorFlows, setSectorFlows] = useState<SectorFlow[]>([]);
   const [etfFlows, setEtfFlows] = useState<EtfFlow[]>([]);
   const [macroStatus, setMacroStatus] = useState<MacroItem[]>([]);
+  const [riskEnvironment, setRiskEnvironment] = useState<string>("neutral");
   const [btcTreasuries, setBtcTreasuries] = useState<BtcTreasury[]>([]);
   const [vcActivity, setVcActivity] = useState<VcActivity[]>([]);
   const [aiBriefing, setAiBriefing] = useState<string[]>([]);
   const [newsHeadlines, setNewsHeadlines] = useState<NewsHeadline[]>([]);
+  const [priceHistory, setPriceHistory] = useState<PriceSnapshot[]>([]);
+  const [signalOutcomes, setSignalOutcomes] = useState<SignalOutcomeBlock[]>([]);
+  const [etfHistory, setEtfHistory] = useState<EtfFlowSnapshot[]>([]);
+  const [isDemoData, setIsDemoData] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
@@ -54,9 +67,9 @@ export function useDashboardData(): DashboardData {
     setIsLoading(true);
     setIsError(false);
     try {
-      const [sigRes, mktRes, secRes, etfRes, macRes, btcRes, vcRes, newsRes] =
+      const [sigRes, mktRes, secRes, etfRes, macRes, btcRes, vcRes, newsRes, phRes, soRes, ehRes] =
         await Promise.all([
-          fetch(`${API_BASE}/api/signals`),
+          fetch(`${API_BASE}/api/signals${wallet ? `?wallet=${encodeURIComponent(wallet)}` : ''}`),
           fetch(`${API_BASE}/api/market`),
           fetch(`${API_BASE}/api/sector-flows`),
           fetch(`${API_BASE}/api/etf-flows`),
@@ -64,39 +77,69 @@ export function useDashboardData(): DashboardData {
           fetch(`${API_BASE}/api/btc-treasuries`),
           fetch(`${API_BASE}/api/vc-activity`),
           fetch(`${API_BASE}/api/news`),
+          fetch(`${API_BASE}/api/price-history?hours=24`),
+          fetch(`${API_BASE}/api/signal-outcomes?hours=48`),
+          fetch(`${API_BASE}/api/etf-history?hours=168`),
         ]);
 
       if (!sigRes.ok || !mktRes.ok) throw new Error('fetch failed');
 
-      const [sigData, mktData, secData, etfData, macData, btcData, vcData, newsData] =
+      const safeJson = async <T>(res: Response, fallback: T): Promise<T> => {
+        if (!res.ok) return fallback;
+        try { return await res.json(); } catch { return fallback; }
+      };
+
+      const [sigData, mktData, secData, etfData, macData, btcData, vcData, newsData, phData, soData, ehData] =
         await Promise.all([
-          sigRes.json(), mktRes.json(), secRes.json(), etfRes.json(),
-          macRes.json(), btcRes.json(), vcRes.json(), newsRes.json(),
+          sigRes.json(), mktRes.json(),
+          safeJson(secRes, { sectorFlows: [] }),
+          safeJson(etfRes, { etfFlows: [] }),
+          safeJson(macRes, { macroStatus: [], riskEnvironment: 'neutral' }),
+          safeJson(btcRes, { btcTreasuries: [] }),
+          safeJson(vcRes, { vcActivity: [] }),
+          safeJson(newsRes, { aiBriefing: [], newsHeadlines: [] }),
+          phRes.ok ? phRes.json() : Promise.resolve({ priceHistory: [] }),
+          soRes.ok ? soRes.json() : Promise.resolve({ signalOutcomes: [] }),
+          ehRes.ok ? ehRes.json() : Promise.resolve({ etfHistory: [] }),
         ]);
 
       setSignals(sigData.signals ?? []);
       setStats(sigData.stats ?? { today: 0, thisWeek: 0, accuracy: 0 });
       setMarket(mktData.market ?? null);
+      setIsDemoData(mktData.is_fallback ?? false);
       setSectorFlows(secData.sectorFlows ?? []);
       setEtfFlows(etfData.etfFlows ?? []);
       setMacroStatus(macData.macroStatus ?? []);
+      setRiskEnvironment(macData.riskEnvironment ?? "neutral");
       setBtcTreasuries(btcData.btcTreasuries ?? []);
       setVcActivity(vcData.vcActivity ?? []);
       setAiBriefing(newsData.aiBriefing ?? []);
       setNewsHeadlines(newsData.newsHeadlines ?? []);
+      setPriceHistory(phData.priceHistory ?? []);
+      setSignalOutcomes(soData.signalOutcomes ?? []);
+      setEtfHistory(ehData.etfHistory ?? []);
       setLastUpdated(new Date());
     } catch {
       setIsError(true);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [wallet]);
 
   useEffect(() => {
     // Load data immediately via REST so the page never hangs waiting for SSE
     fetchAll();
     let pollId: ReturnType<typeof setInterval> | null = setInterval(fetchAll, REFRESH_INTERVAL_MS);
-    const es = new EventSource(`${API_BASE}/api/stream`);
+    const sseUrl = wallet
+      ? `${API_BASE}/api/stream?wallet=${encodeURIComponent(wallet)}`
+      : `${API_BASE}/api/stream`;
+    const es = new EventSource(sseUrl);
+
+    es.addEventListener('access_denied', () => {
+      // Server rejected wallet as free tier — close SSE, stay on polling fallback
+      es.close();
+      setIsConnected(false);
+    });
 
     es.onmessage = (e) => {
       // SSE connected — cancel REST polling, SSE keeps data fresh
@@ -113,9 +156,11 @@ export function useDashboardData(): DashboardData {
       if (snap.signals) setSignals(snap.signals as Signal[]);
       if (snap.stats) setStats(snap.stats as SignalStats);
       if (snap.market) setMarket(snap.market as MarketStatus);
+      if (typeof snap.is_fallback === 'boolean') setIsDemoData(snap.is_fallback);
       if (snap.sectorFlows) setSectorFlows(snap.sectorFlows as SectorFlow[]);
       if (snap.etfFlows) setEtfFlows(snap.etfFlows as EtfFlow[]);
       if (snap.macroStatus) setMacroStatus(snap.macroStatus as MacroItem[]);
+      if (snap.riskEnvironment) setRiskEnvironment(snap.riskEnvironment as string);
       if (snap.btcTreasuries) setBtcTreasuries(snap.btcTreasuries as BtcTreasury[]);
       if (snap.vcActivity) setVcActivity(snap.vcActivity as VcActivity[]);
       if (snap.aiBriefing) setAiBriefing(snap.aiBriefing as string[]);
@@ -135,7 +180,7 @@ export function useDashboardData(): DashboardData {
       es.close();
       if (pollId !== null) clearInterval(pollId);
     };
-  }, [fetchAll]);
+  }, [fetchAll, wallet]);
 
   return {
     signals,
@@ -144,10 +189,15 @@ export function useDashboardData(): DashboardData {
     sectorFlows,
     etfFlows,
     macroStatus,
+    riskEnvironment,
     btcTreasuries,
     vcActivity,
     aiBriefing,
     newsHeadlines,
+    priceHistory,
+    signalOutcomes,
+    etfHistory,
+    isDemoData,
     isLoading,
     isError,
     isConnected,

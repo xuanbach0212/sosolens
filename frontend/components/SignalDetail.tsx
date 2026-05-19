@@ -24,6 +24,13 @@ interface Props {
   signal: Signal;
 }
 
+// sodexPair is "BUY BTC/USDC" or "SELL ETH/USDC" — extract pair and convert to SoDEX URL
+function buildSodexUrl(sodexPair: string): string {
+  const match = sodexPair.match(/([A-Z0-9]+\/[A-Z0-9]+)/);
+  if (!match) return "https://sodex.com";
+  return `https://sodex.com/trade/spot/${match[1].replace("/", "_")}`;
+}
+
 function SectionHeader({ title }: { title: string }) {
   return (
     <div className="flex items-center gap-2 mb-2">
@@ -179,7 +186,10 @@ export default function SignalDetail({ signal }: Props) {
                   Est. output: {signal.sodexEstOutput}
                 </div>
               )}
-              <button className="w-full border border-terminal-yellow text-terminal-yellow text-[10px] py-1.5 rounded hover:bg-terminal-yellow hover:text-terminal-bg transition-colors tracking-widest font-bold">
+              <button
+                onClick={() => window.open(buildSodexUrl(signal.sodexPair), "_blank", "noopener,noreferrer")}
+                className="w-full border border-terminal-yellow text-terminal-yellow text-[10px] py-1.5 rounded hover:bg-terminal-yellow hover:text-terminal-bg transition-colors tracking-widest font-bold"
+              >
                 [ OPEN SODEX ]
               </button>
             </div>

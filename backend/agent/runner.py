@@ -1,12 +1,16 @@
+import asyncio
 import logging
-from datetime import datetime, timezone
+import os
+from collections import defaultdict
+from datetime import datetime, timedelta, timezone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from sqlalchemy import select
+from sqlalchemy import select, delete
+import httpx
 from backend.agent.db import get_db
 from backend.agent.detectors import DETECTORS
 from backend.agent.scorer import score_signal
 from backend.agent.explainer import explain_signal
-from backend.agent.models import Signal
+from backend.agent.models import Signal, SignalOutcome, PriceSnapshot, EtfSnapshot
 import backend.cache as cache
 from backend.events import broadcast
 from backend.data.hardcoded import (
@@ -16,6 +20,26 @@ from backend.data.hardcoded import (
 )
 
 logger = logging.getLogger(__name__)
+
+_CACHE_WORKER_URL = os.environ.get("CACHE_WORKER_URL", "")
+_CACHE_PUSH_SECRET = os.environ.get("CACHE_PUSH_SECRET", "")
+
+_background_tasks: set[asyncio.Task] = set()
+
+
+async def _push_to_cache(snapshot: dict) -> None:
+    if not _CACHE_WORKER_URL or not _CACHE_PUSH_SECRET:
+        return
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            await client.post(
+                f"{_CACHE_WORKER_URL}/api/push",
+                json=snapshot,
+                headers={"X-Push-Secret": _CACHE_PUSH_SECRET},
+            )
+        logger.info("[cache] push ok — %d keys", len(snapshot))
+    except Exception as exc:
+        logger.warning("[cache] push failed: %s", exc)
 
 
 async def _refresh_macro_cache() -> None:
@@ -40,11 +64,40 @@ async def _refresh_macro_cache() -> None:
         logger.warning("[agent] cache: macro_refresh failed: %s", exc)
 
 
+async def _refresh_market_cache() -> None:
+    """Refresh BTC/ETH price and broadcast a partial market update — runs every 30s."""
+    from backend.services.sosovalue import get_client
+    from backend.services.currency import fetch_market_status
+    client = get_client()
+    try:
+        market = await fetch_market_status(client)
+        cache.put("market_status", market)
+        logger.info("[agent] cache: market_status updated (30s)")
+    except Exception as exc:
+        logger.warning("[agent] cache: market_30s failed: %s", exc)
+        market = cache.get_or("market_status", MARKET_STATUS)
+    else:
+        btc_raw = market.get("btcPriceRaw", 0.0)
+        eth_raw = market.get("ethPriceRaw", 0.0)
+        if btc_raw > 0 and eth_raw > 0:
+            cutoff = datetime.now(timezone.utc) - timedelta(hours=72)
+            try:
+                with get_db() as db:
+                    db.add(PriceSnapshot(btc_price=btc_raw, eth_price=eth_raw))
+                    db.execute(delete(PriceSnapshot).where(PriceSnapshot.recorded_at < cutoff))
+            except Exception as db_exc:
+                logger.warning("[agent] price_snapshot write failed: %s", db_exc)
+    await broadcast({"market": market})
+    _t = asyncio.create_task(_push_to_cache(build_full_snapshot()))
+    _background_tasks.add(_t)
+    _t.add_done_callback(_background_tasks.discard)
+
+
 async def _refresh_panel_cache() -> None:
     """Fetch panel data and store in cache. Market status is fetched first (highest priority).
     ETF and sector flows are skipped if detectors already cached them this run."""
     from backend.services.sosovalue import get_client
-    from backend.services.etf import fetch_etf_snapshot
+    from backend.services.etf import fetch_etf_data
     from backend.services.sector import fetch_sector_flows
     from backend.services.btc_treasuries import fetch_btc_treasuries
     from backend.services.news import fetch_news_headlines
@@ -59,7 +112,9 @@ async def _refresh_panel_cache() -> None:
     # ETF and sector: skip if detectors already populated cache this run
     if not cache.get("etf_flows"):
         try:
-            cache.put("etf_flows", await fetch_etf_snapshot(client))
+            snapshot, total, btc_raw, eth_raw = await fetch_etf_data(client)
+            cache.put("etf_flows", snapshot)
+            cache.put("etf_raw", {"btc": btc_raw, "eth": eth_raw, "total": total})
             logger.info("[agent] cache: etf_flows updated")
         except Exception as exc:
             logger.warning("[agent] cache: etf_flows failed: %s", exc)
@@ -87,6 +142,99 @@ async def _refresh_panel_cache() -> None:
 _MAX_SIGNAL_AGE_HOURS = 25
 
 
+def _record_signal_entries(active_signals: dict[str, str], btc_price: float) -> None:
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=20)
+    with get_db() as db:
+        for detector_id, signal_type in active_signals.items():
+            recent = db.scalars(
+                select(SignalOutcome)
+                .where(SignalOutcome.detector_id == detector_id)
+                .where(SignalOutcome.recorded_at >= cutoff)
+            ).first()
+            if recent:
+                continue
+            db.add(SignalOutcome(
+                detector_id=detector_id,
+                signal_type=signal_type,
+                recorded_at=datetime.now(timezone.utc),
+                entry_price=btc_price,
+                outcome="SKIP" if signal_type == "WATCH" else None,
+            ))
+
+
+async def check_outcomes() -> None:
+    from backend.services.sosovalue import get_client
+    from backend.services.currency import fetch_btc_price_usd
+
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+    with get_db() as db:
+        pending = db.scalars(
+            select(SignalOutcome)
+            .where(SignalOutcome.outcome.is_(None))
+            .where(SignalOutcome.recorded_at <= cutoff)
+        ).all()
+        if not pending:
+            return
+
+    try:
+        btc_price = await fetch_btc_price_usd(get_client())
+    except Exception as exc:
+        logger.warning("[outcomes] price fetch failed, will retry: %s", exc)
+        return
+
+    now = datetime.now(timezone.utc)
+    with get_db() as db:
+        for row in db.scalars(
+            select(SignalOutcome)
+            .where(SignalOutcome.outcome.is_(None))
+            .where(SignalOutcome.recorded_at <= cutoff)
+        ).all():
+            row.exit_price = btc_price
+            row.resolved_at = now
+            row.outcome = (
+                "WIN" if (row.signal_type == "BUY" and btc_price > row.entry_price)
+                      or (row.signal_type == "AVOID" and btc_price < row.entry_price)
+                else "LOSS"
+            )
+
+
+def _fmt_outcome(o: SignalOutcome) -> dict:
+    recorded = o.recorded_at
+    if recorded.tzinfo is None:
+        recorded = recorded.replace(tzinfo=timezone.utc)
+    date_str = recorded.strftime("%b %-d")
+    if o.outcome == "SKIP" or o.exit_price is None or not o.entry_price:
+        return {"date": date_str, "label": o.signal_type, "result": "—", "success": False}
+    pct = (o.exit_price - o.entry_price) / o.entry_price * 100
+    result = f"+{pct:.1f}%" if pct >= 0 else f"{pct:.1f}%"
+    return {"date": date_str, "label": o.signal_type, "result": result, "success": o.outcome == "WIN"}
+
+
+def _enrich_with_outcomes(db, payloads: list[dict]) -> tuple[list[dict], int]:
+    """Inject accuracy + pastSignals into each payload. Returns (payloads, global_accuracy)."""
+    rows = db.scalars(
+        select(SignalOutcome)
+        .where(SignalOutcome.outcome.is_not(None))
+        .order_by(SignalOutcome.recorded_at.desc())
+    ).all()
+
+    by_detector: dict[str, list] = defaultdict(list)
+    for row in rows:
+        by_detector[row.detector_id].append(row)
+
+    for p in payloads:
+        det_rows = by_detector.get(p["id"], [])
+        scored = [o for o in det_rows if o.outcome in ("WIN", "LOSS")]
+        wins   = [o for o in scored if o.outcome == "WIN"]
+        p["accuracy"]    = round(len(wins) / len(scored) * 100) if scored else 0
+        p["pastSignals"] = [_fmt_outcome(o) for o in det_rows[:3]]
+
+    all_scored = [o for o in rows if o.outcome in ("WIN", "LOSS")]
+    all_wins   = [o for o in all_scored if o.outcome == "WIN"]
+    global_acc = round(len(all_wins) / len(all_scored) * 100) if all_scored else 0
+    return payloads, global_acc
+
+
 def build_full_snapshot() -> dict:
     with get_db() as db:
         rows = db.scalars(select(Signal)).all()
@@ -103,9 +251,10 @@ def build_full_snapshot() -> dict:
             p = dict(s.payload)
             p["timeAgo"] = f"{hours}h" if hours < 24 else f"{delta.days}d"
             payloads.append(p)
+        payloads, global_acc = _enrich_with_outcomes(db, payloads)
 
     signals = payloads
-    stats = {"today": len(signals), "thisWeek": len(signals), "accuracy": 0}
+    stats = {"today": len(signals), "thisWeek": len(signals), "accuracy": global_acc}
 
     cached_macro = cache.get("macro_status")
     if isinstance(cached_macro, dict) and "indicators" in cached_macro:
@@ -129,6 +278,7 @@ def build_full_snapshot() -> dict:
         "signals": signals,
         "stats": stats,
         "market": cache.get_or("market_status", MARKET_STATUS),
+        "is_fallback": not cache.has("market_status"),
         "sectorFlows": cache.get_or("sector_flows", SECTOR_FLOWS),
         "etfFlows": cache.get_or("etf_flows", ETF_FLOWS),
         **macro,
@@ -146,6 +296,7 @@ async def run_agent() -> None:
         return
 
     generated = 0
+    active_signals: dict[str, str] = {}
     for detector in DETECTORS:
         raw_signals = await detector.run()
         for raw in raw_signals:
@@ -173,17 +324,46 @@ async def run_agent() -> None:
                         explanation=explanation,
                         payload=payload,
                     ))
+            active_signals[raw["id"]] = payload["type"]
             generated += 1
 
     await _refresh_panel_cache()
-    await broadcast(build_full_snapshot())
+    if active_signals:
+        try:
+            from backend.services.sosovalue import get_client
+            from backend.services.currency import fetch_btc_price_usd
+            btc_price = await fetch_btc_price_usd(get_client())
+            _record_signal_entries(active_signals, btc_price)
+        except Exception as exc:
+            logger.warning("[agent] outcome entry recording skipped: %s", exc)
+    await check_outcomes()
+    etf_raw = cache.get("etf_raw")
+    if isinstance(etf_raw, dict) and (etf_raw.get("btc") or etf_raw.get("eth")):
+        cutoff = datetime.now(timezone.utc) - timedelta(days=14)
+        try:
+            with get_db() as db:
+                db.add(EtfSnapshot(
+                    btc_flow=etf_raw["btc"],
+                    eth_flow=etf_raw["eth"],
+                    total_flow=etf_raw["total"],
+                ))
+                db.execute(delete(EtfSnapshot).where(EtfSnapshot.recorded_at < cutoff))
+        except Exception as db_exc:
+            logger.warning("[agent] etf_snapshot write failed: %s", db_exc)
+    snapshot = build_full_snapshot()
+    await broadcast(snapshot)
+    _t = asyncio.create_task(_push_to_cache(snapshot))
+    _background_tasks.add(_t)
+    _t.add_done_callback(_background_tasks.discard)
     logger.info("[agent] run_agent done — %d signals upserted, SSE broadcast sent", generated)
 
 
 def start_scheduler() -> AsyncIOScheduler:
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(run_agent, "interval", hours=1, id="agent_hourly")
+    scheduler.add_job(run_agent, "interval", hours=1, id="agent_hourly", max_instances=1, coalesce=True)
     scheduler.add_job(_refresh_macro_cache, "interval", minutes=30, id="macro_30min")
+    scheduler.add_job(_refresh_market_cache, "interval", seconds=30, id="market_30s",
+                      max_instances=1, coalesce=True, misfire_grace_time=15)
     scheduler.start()
-    logger.info("[agent] Scheduler started — run_agent hourly, macro refresh every 30 min")
+    logger.info("[agent] Scheduler started — run_agent hourly, macro 30min, market price 30s")
     return scheduler

@@ -1,4 +1,4 @@
-import type { SectorFlow, EtfFlow, MacroItem, BtcTreasury, VcActivity } from "@/types";
+import type { SectorFlow, EtfFlow, MacroItem, BtcTreasury, VcActivity, EtfFlowSnapshot } from "@/types";
 
 interface Props {
   sectorFlows: SectorFlow[];
@@ -6,6 +6,7 @@ interface Props {
   macroStatus: MacroItem[];
   btcTreasuries: BtcTreasury[];
   vcActivity: VcActivity[];
+  etfHistory?: EtfFlowSnapshot[];
 }
 
 function PanelHeader({ title }: { title: string }) {
@@ -21,12 +22,51 @@ function PanelHeader({ title }: { title: string }) {
 
 const MAX_FLOW = 40;
 
+function sectorFlowStyle(change: number): { bg: string; textClass: string } {
+  const intensity = Math.min(Math.abs(change) / MAX_FLOW, 1);
+  const alpha = 0.15 + intensity * 0.65;
+  if (change > 0) {
+    return { bg: `rgba(0, 255, 136, ${alpha.toFixed(2)})`, textClass: "text-terminal-green" };
+  }
+  if (change < 0) {
+    return { bg: `rgba(255, 68, 68, ${alpha.toFixed(2)})`, textClass: "text-terminal-red" };
+  }
+  return { bg: "rgba(255,255,255,0.04)", textClass: "text-terminal-muted" };
+}
+
+function EtfBarChart({ data, width = 120, height = 14 }: { data: number[]; width?: number; height?: number }) {
+  if (data.length === 0) return null;
+  const BUCKETS = 7;
+  const bucketSize = Math.ceil(data.length / BUCKETS);
+  const buckets: number[] = [];
+  for (let i = 0; i < data.length; i += bucketSize) {
+    const slice = data.slice(i, i + bucketSize);
+    buckets.push(slice.reduce((s, v) => s + v, 0) / slice.length);
+  }
+  const maxAbs = Math.max(...buckets.map((v) => Math.abs(v)), 1);
+  const gap = 2;
+  const barW = (width - gap * (buckets.length - 1)) / buckets.length;
+  return (
+    <svg width={width} height={height} style={{ display: "block" }}>
+      {buckets.map((v, i) => {
+        const normalized = Math.abs(v) / maxAbs;
+        const barH = Math.max(2, normalized * (height - 2));
+        const x = i * (barW + gap);
+        const y = height - barH;
+        const fill = v >= 0 ? "#00ff88" : "#ff4444";
+        return <rect key={i} x={x} y={y} width={Math.max(1, barW)} height={barH} fill={fill} opacity={0.75} />;
+      })}
+    </svg>
+  );
+}
+
 export default function MarketIntelligence({
   sectorFlows,
   etfFlows,
   macroStatus,
   btcTreasuries,
   vcActivity,
+  etfHistory = [],
 }: Props) {
   return (
     <div
@@ -39,27 +79,19 @@ export default function MarketIntelligence({
         {sectorFlows.length === 0 && (
           <div className="text-[10px] text-terminal-muted italic">Loading...</div>
         )}
-        <div className="space-y-0.5">
+        <div className="grid grid-cols-3 gap-1">
           {sectorFlows.map((s) => {
-            const pct = Math.abs(s.change) / MAX_FLOW;
-            const width = Math.max(pct * 100, 2);
-            const positive = s.change >= 0;
+            const { bg, textClass } = sectorFlowStyle(s.change);
+            const positive = s.change > 0;
             return (
-              <div key={s.name} className="flex items-center gap-1.5">
-                <span className="text-[10px] text-terminal-muted w-12 shrink-0">{s.name}</span>
-                <div className="flex-1 h-2 bg-terminal-border rounded-sm overflow-hidden">
-                  <div
-                    className={`h-full rounded-sm ${positive ? "bg-terminal-green" : "bg-terminal-red"}`}
-                    style={{ width: `${width}%` }}
-                  />
-                </div>
-                <span
-                  className={`text-[10px] w-10 text-right shrink-0 ${
-                    positive ? "text-terminal-green" : "text-terminal-red"
-                  }`}
-                >
-                  {positive ? "+" : ""}
-                  {s.change}%
+              <div
+                key={s.name}
+                className="rounded px-1.5 py-1.5 flex flex-col gap-0.5"
+                style={{ backgroundColor: bg }}
+              >
+                <span className="text-[9px] text-terminal-muted leading-none truncate">{s.name}</span>
+                <span className={`text-[10px] font-bold leading-none ${textClass}`}>
+                  {positive ? "+" : ""}{s.change}%
                 </span>
               </div>
             );
@@ -69,22 +101,32 @@ export default function MarketIntelligence({
 
       {/* ETF Flows */}
       <div>
-        <PanelHeader title="ETF FLOWS (24H)" />
+        <PanelHeader title="ETF FLOWS (7D)" />
         {etfFlows.length === 0 && (
           <div className="text-[10px] text-terminal-muted italic">Loading...</div>
         )}
         <div className="space-y-0.5">
           {etfFlows.map((e) => (
-            <div
-              key={e.name}
-              className={`flex justify-between text-[10px] ${
-                e.total ? "border-t border-terminal-border pt-1 mt-1 font-bold" : ""
-              }`}
-            >
-              <span className="text-terminal-muted">{e.name}</span>
-              <span className={e.positive ? "text-terminal-green" : "text-terminal-red"}>
-                {e.flow} {e.arrows}
-              </span>
+            <div key={e.name}>
+              <div
+                className={`flex justify-between text-[10px] ${
+                  e.total ? "border-t border-terminal-border pt-1 mt-1 font-bold" : ""
+                }`}
+              >
+                <span className="text-terminal-muted">{e.name}</span>
+                <span className={e.positive ? "text-terminal-green" : "text-terminal-red"}>
+                  {e.flow} {e.arrows}
+                </span>
+              </div>
+              {!e.total && etfHistory.length > 0 && (
+                <div className="mt-0.5 mb-1">
+                  <EtfBarChart
+                    data={e.name === "BTC ETF"
+                      ? etfHistory.map((s) => s.btcFlow)
+                      : etfHistory.map((s) => s.ethFlow)}
+                  />
+                </div>
+              )}
             </div>
           ))}
         </div>

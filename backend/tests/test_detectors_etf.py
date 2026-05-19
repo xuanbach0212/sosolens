@@ -15,7 +15,7 @@ def detector():
 def _patch(total: float, raise_error: bool = False):
     """Context manager patching both fetch_etf_data and fetch_btc_eth_prices."""
     etf_mock = AsyncMock(side_effect=Exception("err") if raise_error else None,
-                         return_value=(_SNAPSHOT, total))
+                         return_value=(_SNAPSHOT, total, total * 0.75, total * 0.25))
     price_mock = AsyncMock(return_value=(_PLACEHOLDER_TOKEN, _PLACEHOLDER_TOKEN))
     return (
         patch("backend.agent.detectors.etf_flow_spike.get_client"),

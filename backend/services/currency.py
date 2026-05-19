@@ -58,20 +58,35 @@ async def fetch_btc_eth_prices(client: SoSoValueClient) -> tuple[dict, dict]:
     return _token("BTC", btc_raw), _token("ETH", eth_raw)
 
 
+async def fetch_btc_price_usd(client: SoSoValueClient) -> float:
+    """Return current BTC price as a raw float, or raise on failure."""
+    raw = (await client.get_currency_snapshot(BTC_ID)).get("data") or {}
+    price = float(raw.get("price") or 0)
+    if price <= 0:
+        raise ValueError("BTC price returned zero from API")
+    return price
+
+
 async def fetch_market_status(client: SoSoValueClient) -> dict:
     from backend.data.hardcoded import MARKET_STATUS
+
+    def _fallback_status() -> dict:
+        base = dict(MARKET_STATUS)
+        base.setdefault("btcPriceRaw", 0.0)
+        base.setdefault("ethPriceRaw", 0.0)
+        return base
 
     try:
         btc_raw = (await client.get_currency_snapshot(BTC_ID)).get("data") or {}
         eth_raw = (await client.get_currency_snapshot(ETH_ID)).get("data") or {}
     except Exception as exc:
         logger.warning("[currency] snapshot failed: %s", exc)
-        return MARKET_STATUS
+        return _fallback_status()
 
     btc_price = float(btc_raw.get("price") or 0)
     eth_price = float(eth_raw.get("price") or 0)
     if not btc_price or not eth_price:
-        return MARKET_STATUS
+        return _fallback_status()
 
     btc_change = float(btc_raw.get("change_pct_24h") or 0)
     eth_change = float(eth_raw.get("change_pct_24h") or 0)
@@ -94,5 +109,7 @@ async def fetch_market_status(client: SoSoValueClient) -> dict:
         "vol": _fmt_large(total_vol) if total_vol else base["vol"],
         "sentiment": sentiment,
         "sentimentPositive": positive,
+        "btcPriceRaw": btc_price,
+        "ethPriceRaw": eth_price,
     })
     return base
