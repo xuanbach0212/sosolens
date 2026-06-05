@@ -138,3 +138,16 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .sync-pulse { animation: none; }
 }
+
+/* New-signal row pulse (#72) — blue arrival pulse on freshly-added signal rows */
+@keyframes new-signal-pulse {
+  0%   { background-color: rgba(110, 168, 214, 0.22); }
+  20%  { background-color: rgba(110, 168, 214, 0.22); }
+  100% { background-color: transparent; }
+}
+.new-signal-pulse {
+  animation: new-signal-pulse 2000ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .new-signal-pulse { animation: none; }
+}
