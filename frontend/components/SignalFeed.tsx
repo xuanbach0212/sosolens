@@ -67,10 +67,10 @@ export default function SignalFeed({ signals, selectedId, onSelect, stats, isLoa
                     : "border-l-transparent hover:bg-terminal-panel"
                 }`}
               >
-                <div className={`text-xs font-bold ${colorClass.split(" ")[0]}`}>
+                <div className={`text-[length:var(--fs-feedtype)] font-bold tracking-wide ${colorClass.split(" ")[0]}`}>
                   {TYPE_EMOJI[signal.type]} {signal.type}
                 </div>
-                <div className="text-[11px] text-terminal-text mt-0.5">{signal.sector}</div>
+                <div className="text-[length:var(--fs-sector)] text-terminal-text mt-0.5">{signal.sector}</div>
                 <div className="text-[10px] text-terminal-muted mt-0.5">
                   {signal.confidence}% · {signal.risk} · {signal.timeAgo}
                 </div>

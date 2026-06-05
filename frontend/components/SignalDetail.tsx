@@ -52,7 +52,7 @@ export default function SignalDetail({ signal }: Props) {
       <div className="overflow-y-auto flex-1 px-4 py-3 space-y-4">
         {/* Header */}
         <div>
-          <div className={`text-sm font-bold ${typeColor}`}>
+          <div className={`text-[length:var(--fs-verdict)] font-semibold leading-tight ${typeColor}`}>
             {signal.type === "BUY" ? "🟢" : signal.type === "WATCH" ? "🟡" : "🔴"} {signal.type} SIGNAL — {signal.sector.toUpperCase()}
           </div>
           <div className="flex items-center gap-3 mt-2">
