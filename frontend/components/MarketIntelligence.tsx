@@ -73,7 +73,7 @@ export default function MarketIntelligence({
   return (
     <div
       className="flex flex-col overflow-y-auto px-3 py-3 space-y-4"
-      style={{ gridColumn: "3", gridRow: "2" }}
+      style={{ gridColumn: "3", gridRow: "3" }}
     >
       {/* Sector Flows */}
       <div>

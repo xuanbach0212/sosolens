@@ -48,7 +48,7 @@ export default function SignalDetail({ signal }: Props) {
   return (
     <div
       className="border-r border-terminal-border flex flex-col overflow-hidden"
-      style={{ gridColumn: "2", gridRow: "2" }}
+      style={{ gridColumn: "2", gridRow: "3" }}
     >
       <div className="overflow-y-auto flex-1 px-4 py-3 space-y-4">
         {/* Header */}

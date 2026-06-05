@@ -31,7 +31,7 @@ export default function SignalFeed({ signals, selectedId, onSelect, stats, isLoa
   return (
     <div
       className="border-r border-terminal-border flex flex-col overflow-hidden"
-      style={{ gridColumn: "1", gridRow: "2" }}
+      style={{ gridColumn: "1", gridRow: "3" }}
     >
       <div className="px-3 py-2 border-b border-terminal-border">
         <span className="text-xs font-bold text-terminal-muted tracking-widest">SIGNALS</span>
