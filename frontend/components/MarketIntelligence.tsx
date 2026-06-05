@@ -54,8 +54,8 @@ function EtfBarChart({ data, width = 120, height = 22 }: { data: number[]; width
         const barH = Math.max(2, normalized * (height - 2));
         const x = i * (barW + gap);
         const y = height - barH;
-        const fill = v >= 0 ? "#00ff88" : "#ff4444";
-        return <rect key={i} x={x} y={y} width={Math.max(1, barW)} height={barH} fill={fill} opacity={0.75} />;
+        const fillVar = v >= 0 ? "var(--color-terminal-green)" : "var(--color-terminal-red)";
+        return <rect key={i} x={x} y={y} width={Math.max(1, barW)} height={barH} style={{ fill: fillVar }} opacity={0.75} />;
       })}
     </svg>
   );

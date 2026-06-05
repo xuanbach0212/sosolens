@@ -1,23 +1,43 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-terminal-bg: #0a0a0a;
-  --color-terminal-panel: #111111;
-  --color-terminal-border: #2a2a2a;
-  --color-terminal-green: #00ff88;
-  --color-terminal-yellow: #ffcc00;
-  --color-terminal-red: #ff4444;
-  --color-terminal-text: #e0e0e0;
-  --color-terminal-muted: #666666;
-  --color-terminal-blue: #4da6ff;
+  --color-terminal-bg: #15120e;
+  --color-terminal-panel: #1c1813;
+  --color-terminal-panel2: #221d17;
+  --color-terminal-border: #342d24;
+  --color-terminal-bordersoft: #2a241d;
+  --color-terminal-green: #5fce96;
+  --color-terminal-yellow: #e0a740;
+  --color-terminal-red: #e07060;
+  --color-terminal-text: #ece5da;
+  --color-terminal-muted: #8d8275;
+  --color-terminal-blue: #6ea8d6;
+}
+
+:root {
+  --fs-verdict: 21px;
+  --fw-verdict: 600;
+  --ls-verdict: 0;
+  --fs-section: 10px;
+  --fs-body: 12.5px;
+  --fs-data: 11px;
+  --fs-label: 9.5px;
+  --fs-tk: 12px;
+  --fs-feedtype: 13px;
+  --fs-sector: 13px;
+  --ls-label: 0.14em;
+  --ls-body: 0;
+  --lh-body: 1.62;
 }
 
 html,
 body {
   height: 100%;
   overflow: hidden;
-  background-color: #0a0a0a;
-  color: #e0e0e0;
+  background-color: #15120e;
+  color: #ece5da;
+  line-height: var(--lh-body);
+  letter-spacing: var(--ls-body);
 }
 
 * {
@@ -28,8 +48,8 @@ body {
   width: 4px;
 }
 ::-webkit-scrollbar-track {
-  background: #111111;
+  background: #1c1813;
 }
 ::-webkit-scrollbar-thumb {
-  background: #2a2a2a;
+  background: #342d24;
 }
