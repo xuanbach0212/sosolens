@@ -124,3 +124,17 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .flash-up, .flash-down { animation: none; }
 }
+
+/* Agent-run sync pulse (#71) — amber "breath" on intel panels when agent broadcasts */
+@keyframes sync-pulse {
+  0%   { background-color: transparent; }
+  12%  { background-color: rgba(224, 167, 64, 0.16); }
+  100% { background-color: transparent; }
+}
+.sync-pulse {
+  animation: sync-pulse 1500ms ease-out;
+  border-radius: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sync-pulse { animation: none; }
+}

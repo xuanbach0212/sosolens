@@ -39,6 +39,7 @@ export default function Page() {
     isError,
     isConnected,
     lastUpdated,
+    agentRunTick,
   } = useDashboardData(wallet.address ?? undefined);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -106,6 +107,7 @@ export default function Page() {
           btcTreasuries={btcTreasuries}
           vcActivity={vcActivity}
           etfHistory={etfHistory}
+          agentRunTick={agentRunTick}
         />
         <BottomBar briefing={aiBriefing} news={newsHeadlines} lastUpdated={lastUpdated} />
       </div>

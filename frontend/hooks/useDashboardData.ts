@@ -41,6 +41,7 @@ export interface DashboardData {
   isError: boolean;
   isConnected: boolean;
   lastUpdated: Date | null;
+  agentRunTick: number;
   refresh: () => void;
 }
 
@@ -65,6 +66,7 @@ export function useDashboardData(wallet?: string): DashboardData {
   const [isError, setIsError] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [agentRunTick, setAgentRunTick] = useState(0);
 
   const fetchAll = useCallback(async () => {
     setIsLoading(true);
@@ -123,6 +125,7 @@ export function useDashboardData(wallet?: string): DashboardData {
       setSignalOutcomes(soData.signalOutcomes ?? []);
       setEtfHistory(ehData.etfHistory ?? []);
       setLastUpdated(new Date());
+      setAgentRunTick((t) => t + 1);
     } catch {
       setIsError(true);
     } finally {
@@ -157,6 +160,14 @@ export function useDashboardData(wallet?: string): DashboardData {
       } catch {
         return;
       }
+      // Agent run snapshots carry the full payload; market-only refreshes (30s
+      // cadence) just send {market: ...}. Tick when an agent field is present.
+      const isAgentRun =
+        snap.signals !== undefined ||
+        snap.sectorFlows !== undefined ||
+        snap.btcTreasuries !== undefined;
+      if (isAgentRun) setAgentRunTick((t) => t + 1);
+
       if (snap.signals) setSignals(snap.signals as Signal[]);
       if (snap.stats) setStats(snap.stats as SignalStats);
       if (snap.market) setMarket(snap.market as MarketStatus);
@@ -208,6 +219,7 @@ export function useDashboardData(wallet?: string): DashboardData {
     isError,
     isConnected,
     lastUpdated,
+    agentRunTick,
     refresh: fetchAll,
   };
 }

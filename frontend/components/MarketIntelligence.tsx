@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { SectorFlow, EtfFlow, MacroItem, BtcTreasury, VcActivity, EtfFlowSnapshot, MacroEvent } from "@/types";
 
 interface Props {
@@ -8,6 +9,7 @@ interface Props {
   vcActivity: VcActivity[];
   etfHistory?: EtfFlowSnapshot[];
   upcomingEvents?: MacroEvent[];
+  agentRunTick: number;
 }
 
 function PanelHeader({ title }: { title: string }) {
@@ -69,14 +71,24 @@ export default function MarketIntelligence({
   vcActivity,
   etfHistory = [],
   upcomingEvents = [],
+  agentRunTick,
 }: Props) {
+  const [pulse, setPulse] = useState(false);
+  useEffect(() => {
+    if (agentRunTick === 0) return;
+    setPulse(true);
+    const t = setTimeout(() => setPulse(false), 1500);
+    return () => clearTimeout(t);
+  }, [agentRunTick]);
+  const panelCls = pulse ? "sync-pulse" : "";
+
   return (
     <div
       className="flex flex-col overflow-y-auto px-3 py-3 space-y-4"
       style={{ gridColumn: "3", gridRow: "3" }}
     >
       {/* Sector Flows */}
-      <div>
+      <div className={panelCls}>
         <PanelHeader title="SECTOR FLOWS (7D)" />
         {sectorFlows.length === 0 && (
           <div className="text-[10px] text-terminal-muted italic">Loading...</div>
@@ -102,7 +114,7 @@ export default function MarketIntelligence({
       </div>
 
       {/* ETF Flows */}
-      <div>
+      <div className={panelCls}>
         <PanelHeader title="ETF FLOWS (7D)" />
         {etfFlows.length === 0 && (
           <div className="text-[10px] text-terminal-muted italic">Loading...</div>
@@ -135,7 +147,7 @@ export default function MarketIntelligence({
       </div>
 
       {/* Macro Status */}
-      <div>
+      <div className={panelCls}>
         <PanelHeader title="MACRO STATUS" />
         {macroStatus.length === 0 && (
           <div className="text-[10px] text-terminal-muted italic">Loading...</div>
@@ -153,7 +165,7 @@ export default function MarketIntelligence({
       </div>
 
       {/* BTC Treasuries */}
-      <div>
+      <div className={panelCls}>
         <PanelHeader title="BTC TREASURIES" />
         {btcTreasuries.length === 0 && (
           <div className="text-[10px] text-terminal-muted italic">Loading...</div>
@@ -184,7 +196,7 @@ export default function MarketIntelligence({
 
       {/* Upcoming Events */}
       {upcomingEvents.length > 0 && (
-        <div>
+        <div className={panelCls}>
           <PanelHeader title="UPCOMING EVENTS (14D)" />
           <div className="space-y-0.5">
             {upcomingEvents.slice(0, 6).map((e, i) => {
@@ -204,7 +216,7 @@ export default function MarketIntelligence({
       )}
 
       {/* VC Activity */}
-      <div>
+      <div className={panelCls}>
         <PanelHeader title="VC ACTIVITY (7D)" />
         {vcActivity.length === 0 && (
           <div className="text-[10px] text-terminal-muted italic">Loading...</div>
