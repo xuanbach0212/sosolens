@@ -24,6 +24,7 @@ export default function Page() {
     sectorFlows,
     etfFlows,
     macroStatus,
+    upcomingEvents,
     riskEnvironment,
     btcTreasuries,
     vcActivity,
@@ -99,6 +100,7 @@ export default function Page() {
           sectorFlows={sectorFlows}
           etfFlows={etfFlows}
           macroStatus={macroStatus}
+          upcomingEvents={upcomingEvents}
           btcTreasuries={btcTreasuries}
           vcActivity={vcActivity}
           etfHistory={etfHistory}

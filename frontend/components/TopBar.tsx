@@ -62,6 +62,7 @@ export default function TopBar({ market, isLoading, isError, isConnected, lastUp
     ? market.fearGreed > prevFearGreed.current ? "↑" : "↓"
     : null;
   if (market) prevFearGreed.current = market.fearGreed;
+  const fearGreedStyle = market ? fearGreedDisplay(market.fearGreed) : null;
 
   const btcData = priceHistory.map(p => p.btcPrice);
   const ethData = priceHistory.map(p => p.ethPrice);
@@ -121,19 +122,23 @@ export default function TopBar({ market, isLoading, isError, isConnected, lastUp
         <span className="text-terminal-muted">│</span>
         <span>
           MCAP <span className="text-terminal-text">{market?.mcap ?? dash}</span>{" "}
-          <span className="text-terminal-green">{market?.mcapChange ?? ""}</span>
+          <span className={market && parseFloat(market.mcapChange) >= 0 ? "text-terminal-green" : "text-terminal-red"}>
+            {market?.mcapChange ?? ""}
+          </span>
         </span>
         <span className="text-terminal-muted">│</span>
         <span>
           VOL <span className="text-terminal-text">{market?.vol ?? dash}</span>{" "}
-          <span className="text-terminal-green">{market?.volChange ?? ""}</span>
+          <span className={market && parseFloat(market.volChange) >= 0 ? "text-terminal-green" : "text-terminal-red"}>
+            {market?.volChange ?? ""}
+          </span>
         </span>
         <span className="text-terminal-muted">│</span>
         <span className="flex items-center gap-1">
           FEAR/GREED:{" "}
           {market ? (
             <>
-              <span className={fearGreedDisplay(market.fearGreed).className} style={fearGreedDisplay(market.fearGreed).style}>
+              <span className={fearGreedStyle!.className} style={fearGreedStyle!.style}>
                 {market.fearGreed}
               </span>
               {fearGreedTrend && (

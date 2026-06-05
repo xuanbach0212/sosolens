@@ -265,7 +265,12 @@ def build_full_snapshot() -> dict:
             "macroStatusDetail": cached_macro.get("macro_status", {}),
         }
     else:
-        macro = {"macroStatus": cached_macro or MACRO_STATUS}
+        macro = {
+            "macroStatus": cached_macro or MACRO_STATUS,
+            "riskEnvironment": "neutral",
+            "upcomingEvents": [],
+            "macroStatusDetail": {},
+        }
 
     cached_news = cache.get("news")
     news = (
@@ -298,7 +303,11 @@ async def run_agent() -> None:
     generated = 0
     active_signals: dict[str, str] = {}
     for detector in DETECTORS:
-        raw_signals = await detector.run()
+        try:
+            raw_signals = await detector.run()
+        except Exception as exc:
+            logger.warning("[agent] detector %s failed: %s", type(detector).__name__, exc)
+            continue
         for raw in raw_signals:
             scores = score_signal(raw)
             explanation = await explain_signal(raw)

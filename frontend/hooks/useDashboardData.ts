@@ -8,6 +8,7 @@ import type {
   SectorFlow,
   EtfFlow,
   MacroItem,
+  MacroEvent,
   BtcTreasury,
   VcActivity,
   NewsHeadline,
@@ -26,6 +27,7 @@ export interface DashboardData {
   sectorFlows: SectorFlow[];
   etfFlows: EtfFlow[];
   macroStatus: MacroItem[];
+  upcomingEvents: MacroEvent[];
   riskEnvironment: string;
   btcTreasuries: BtcTreasury[];
   vcActivity: VcActivity[];
@@ -49,6 +51,7 @@ export function useDashboardData(wallet?: string): DashboardData {
   const [sectorFlows, setSectorFlows] = useState<SectorFlow[]>([]);
   const [etfFlows, setEtfFlows] = useState<EtfFlow[]>([]);
   const [macroStatus, setMacroStatus] = useState<MacroItem[]>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<MacroEvent[]>([]);
   const [riskEnvironment, setRiskEnvironment] = useState<string>("neutral");
   const [btcTreasuries, setBtcTreasuries] = useState<BtcTreasury[]>([]);
   const [vcActivity, setVcActivity] = useState<VcActivity[]>([]);
@@ -110,6 +113,7 @@ export function useDashboardData(wallet?: string): DashboardData {
       setSectorFlows(secData.sectorFlows ?? []);
       setEtfFlows(etfData.etfFlows ?? []);
       setMacroStatus(macData.macroStatus ?? []);
+      setUpcomingEvents(macData.upcomingEvents ?? []);
       setRiskEnvironment(macData.riskEnvironment ?? "neutral");
       setBtcTreasuries(btcData.btcTreasuries ?? []);
       setVcActivity(vcData.vcActivity ?? []);
@@ -160,6 +164,7 @@ export function useDashboardData(wallet?: string): DashboardData {
       if (snap.sectorFlows) setSectorFlows(snap.sectorFlows as SectorFlow[]);
       if (snap.etfFlows) setEtfFlows(snap.etfFlows as EtfFlow[]);
       if (snap.macroStatus) setMacroStatus(snap.macroStatus as MacroItem[]);
+      if (snap.upcomingEvents) setUpcomingEvents(snap.upcomingEvents as MacroEvent[]);
       if (snap.riskEnvironment) setRiskEnvironment(snap.riskEnvironment as string);
       if (snap.btcTreasuries) setBtcTreasuries(snap.btcTreasuries as BtcTreasury[]);
       if (snap.vcActivity) setVcActivity(snap.vcActivity as VcActivity[]);
@@ -189,6 +194,7 @@ export function useDashboardData(wallet?: string): DashboardData {
     sectorFlows,
     etfFlows,
     macroStatus,
+    upcomingEvents,
     riskEnvironment,
     btcTreasuries,
     vcActivity,

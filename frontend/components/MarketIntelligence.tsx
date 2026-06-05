@@ -1,4 +1,4 @@
-import type { SectorFlow, EtfFlow, MacroItem, BtcTreasury, VcActivity, EtfFlowSnapshot } from "@/types";
+import type { SectorFlow, EtfFlow, MacroItem, BtcTreasury, VcActivity, EtfFlowSnapshot, MacroEvent } from "@/types";
 
 interface Props {
   sectorFlows: SectorFlow[];
@@ -7,6 +7,7 @@ interface Props {
   btcTreasuries: BtcTreasury[];
   vcActivity: VcActivity[];
   etfHistory?: EtfFlowSnapshot[];
+  upcomingEvents?: MacroEvent[];
 }
 
 function PanelHeader({ title }: { title: string }) {
@@ -34,7 +35,7 @@ function sectorFlowStyle(change: number): { bg: string; textClass: string } {
   return { bg: "rgba(255,255,255,0.04)", textClass: "text-terminal-muted" };
 }
 
-function EtfBarChart({ data, width = 120, height = 14 }: { data: number[]; width?: number; height?: number }) {
+function EtfBarChart({ data, width = 120, height = 22 }: { data: number[]; width?: number; height?: number }) {
   if (data.length === 0) return null;
   const BUCKETS = 7;
   const bucketSize = Math.ceil(data.length / BUCKETS);
@@ -67,6 +68,7 @@ export default function MarketIntelligence({
   btcTreasuries,
   vcActivity,
   etfHistory = [],
+  upcomingEvents = [],
 }: Props) {
   return (
     <div
@@ -179,6 +181,27 @@ export default function MarketIntelligence({
           ))}
         </div>
       </div>
+
+      {/* Upcoming Events */}
+      {upcomingEvents.length > 0 && (
+        <div>
+          <PanelHeader title="UPCOMING EVENTS (14D)" />
+          <div className="space-y-0.5">
+            {upcomingEvents.slice(0, 6).map((e, i) => {
+              const label = e.events.slice(0, 2).join(", ");
+              const when = e.days_until === 0 ? "today" : `in ${e.days_until}d`;
+              return (
+                <div key={i} className="flex justify-between text-[10px]">
+                  <span className="text-terminal-muted truncate mr-2 flex-1">{label}</span>
+                  <span className={e.high_impact && e.days_until <= 7 ? "text-terminal-yellow shrink-0" : "text-terminal-text shrink-0"}>
+                    {when}{e.high_impact && e.days_until <= 7 ? " ⚠" : ""}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* VC Activity */}
       <div>
