@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef, useState } from "react";
 import type { Signal, SignalType, SignalOutcomeBlock } from "@/types";
 import { VerdictMark, Warn } from "@/components/icons";
 
@@ -28,6 +29,37 @@ const OUTCOME_COLOR: Record<string, string> = {
 };
 
 export default function SignalFeed({ signals, selectedId, onSelect, stats, isLoading, isPremium, signalOutcomes = [] }: Props) {
+  // Track which signal IDs have been seen so we can flag fresh arrivals.
+  // First render seeds the set without pulsing — avoids a flash on initial load.
+  const seenIdsRef = useRef<Set<string> | null>(null);
+  const [freshIds, setFreshIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const currentIds = new Set(signals.map((s) => s.id));
+    if (seenIdsRef.current === null) {
+      seenIdsRef.current = currentIds;
+      return;
+    }
+    const seen = seenIdsRef.current;
+    const newIds = [...currentIds].filter((id) => !seen.has(id));
+    seenIdsRef.current = currentIds;
+    if (newIds.length === 0) return;
+
+    setFreshIds((prev) => {
+      const next = new Set(prev);
+      newIds.forEach((id) => next.add(id));
+      return next;
+    });
+    const t = setTimeout(() => {
+      setFreshIds((prev) => {
+        const next = new Set(prev);
+        newIds.forEach((id) => next.delete(id));
+        return next;
+      });
+    }, 2000);
+    return () => clearTimeout(t);
+  }, [signals]);
+
   return (
     <div
       className="border-r border-terminal-border flex flex-col overflow-hidden"
@@ -50,6 +82,7 @@ export default function SignalFeed({ signals, selectedId, onSelect, stats, isLoa
         ) : (
           signals.map((signal) => {
             const isActive = signal.id === selectedId;
+            const isFresh = freshIds.has(signal.id);
             const colorClass = TYPE_COLOR[signal.type];
             return (
               <button
@@ -59,7 +92,7 @@ export default function SignalFeed({ signals, selectedId, onSelect, stats, isLoa
                   isActive
                     ? `border-l-current bg-terminal-panel ${colorClass}`
                     : "border-l-transparent hover:bg-terminal-panel"
-                }`}
+                } ${isFresh ? "new-signal-pulse" : ""}`}
               >
                 <div className={`text-[length:var(--fs-feedtype)] font-bold tracking-wide flex items-center gap-1 ${colorClass.split(" ")[0]}`}>
                   <VerdictMark type={signal.type} /> {signal.type}
