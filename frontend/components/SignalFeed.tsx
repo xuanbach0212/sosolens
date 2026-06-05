@@ -55,7 +55,7 @@ export default function SignalFeed({ signals, selectedId, onSelect, stats, isLoa
               <button
                 key={signal.id}
                 onClick={() => onSelect(signal.id)}
-                className={`w-full text-left px-3 py-2 border-b border-terminal-border border-l-2 cursor-pointer transition-colors ${
+                className={`w-full text-left px-3 py-2 border-b border-terminal-bordersoft border-l-2 cursor-pointer transition-colors ${
                   isActive
                     ? `border-l-current bg-terminal-panel ${colorClass}`
                     : "border-l-transparent hover:bg-terminal-panel"
@@ -107,7 +107,7 @@ export default function SignalFeed({ signals, selectedId, onSelect, stats, isLoa
           </span>
         </div>
         {isPremium === false && (
-          <div className="text-terminal-yellow pt-1 border-t border-terminal-border mt-1 flex items-center gap-1">
+          <div className="text-terminal-yellow pt-1 border-t border-terminal-bordersoft mt-1 flex items-center gap-1">
             <Warn /> DELAYED 1H · FREE TIER
           </div>
         )}
