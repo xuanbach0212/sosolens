@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import type { MarketStatus, PriceSnapshot } from "@/types";
+import { Dot, Warn } from "@/components/icons";
 
 function fearGreedDisplay(v: number): { className: string; style?: CSSProperties } {
   if (v <= 24) return { className: "text-terminal-red" };
@@ -10,10 +11,10 @@ function fearGreedDisplay(v: number): { className: string; style?: CSSProperties
   return { className: "text-terminal-green font-bold" };
 }
 
-function macroRegimeDisplay(regime: string): { label: string; className: string } {
-  if (regime === "risk-off") return { label: "RISK-OFF ⚠", className: "text-terminal-red" };
-  if (regime === "risk-on")  return { label: "RISK-ON",    className: "text-terminal-green" };
-  return                            { label: "NEUTRAL",    className: "text-terminal-yellow" };
+function macroRegimeDisplay(regime: string): { label: string; className: string; warn: boolean } {
+  if (regime === "risk-off") return { label: "RISK-OFF", className: "text-terminal-red", warn: true };
+  if (regime === "risk-on")  return { label: "RISK-ON",  className: "text-terminal-green", warn: false };
+  return                            { label: "NEUTRAL",  className: "text-terminal-yellow", warn: false };
 }
 
 function Sparkline({ data, color }: { data: number[]; color: string }) {
@@ -89,8 +90,8 @@ export default function TopBar({ market, isLoading, isError, isConnected, lastUp
         <span>
           MARKET:{" "}
           {market ? (
-            <span className={market.sentimentPositive ? "text-terminal-green" : "text-terminal-red"}>
-              {market.sentimentPositive ? "🟢" : "🔴"} {market.sentiment}
+            <span className={`inline-flex items-center gap-1 ${market.sentimentPositive ? "text-terminal-green" : "text-terminal-red"}`}>
+              <Dot variant={market.sentimentPositive ? "up" : "down"} /> {market.sentiment}
             </span>
           ) : (
             <span className="text-terminal-muted">{dash}</span>
@@ -99,9 +100,14 @@ export default function TopBar({ market, isLoading, isError, isConnected, lastUp
         <span className="text-terminal-muted">│</span>
         <span>
           MACRO:{" "}
-          <span className={macroRegimeDisplay(riskEnvironment).className}>
-            {macroRegimeDisplay(riskEnvironment).label}
-          </span>
+          {(() => {
+            const m = macroRegimeDisplay(riskEnvironment);
+            return (
+              <span className={`inline-flex items-center gap-1 ${m.className}`}>
+                {m.label}{m.warn && <Warn />}
+              </span>
+            );
+          })()}
         </span>
         <span className="text-terminal-muted">│</span>
         <span className="flex items-center gap-1">

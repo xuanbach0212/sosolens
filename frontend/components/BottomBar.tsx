@@ -1,4 +1,5 @@
 import type { NewsHeadline } from "@/types";
+import { Warn } from "@/components/icons";
 
 interface Props {
   briefing: string[];
@@ -55,7 +56,7 @@ export default function BottomBar({ briefing, news, lastUpdated }: Props) {
                 {item.text}{" "}
                 <span className="text-terminal-muted">— {item.source}</span>
                 {item.macroSensitive && (
-                  <span className="text-terminal-yellow ml-1">⚠️</span>
+                  <span className="ml-1 inline-flex"><Warn /></span>
                 )}
               </span>
             </div>

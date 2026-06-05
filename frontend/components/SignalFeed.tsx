@@ -1,19 +1,13 @@
 'use client';
 
 import type { Signal, SignalType, SignalOutcomeBlock } from "@/types";
+import { VerdictMark, Warn } from "@/components/icons";
 
 const TYPE_COLOR: Record<SignalType, string> = {
   BUY: "text-terminal-green border-terminal-green",
   SELL: "text-terminal-red border-terminal-red",
   WATCH: "text-terminal-yellow border-terminal-yellow",
   AVOID: "text-terminal-red border-terminal-red",
-};
-
-const TYPE_EMOJI: Record<SignalType, string> = {
-  BUY: "🟢",
-  SELL: "🔴",
-  WATCH: "🟡",
-  AVOID: "🔴",
 };
 
 interface Props {
@@ -67,8 +61,8 @@ export default function SignalFeed({ signals, selectedId, onSelect, stats, isLoa
                     : "border-l-transparent hover:bg-terminal-panel"
                 }`}
               >
-                <div className={`text-[length:var(--fs-feedtype)] font-bold tracking-wide ${colorClass.split(" ")[0]}`}>
-                  {TYPE_EMOJI[signal.type]} {signal.type}
+                <div className={`text-[length:var(--fs-feedtype)] font-bold tracking-wide flex items-center gap-1 ${colorClass.split(" ")[0]}`}>
+                  <VerdictMark type={signal.type} /> {signal.type}
                 </div>
                 <div className="text-[length:var(--fs-sector)] text-terminal-text mt-0.5">{signal.sector}</div>
                 <div className="text-[10px] text-terminal-muted mt-0.5">
@@ -113,8 +107,8 @@ export default function SignalFeed({ signals, selectedId, onSelect, stats, isLoa
           </span>
         </div>
         {isPremium === false && (
-          <div className="text-terminal-yellow pt-1 border-t border-terminal-border mt-1">
-            ⚠ DELAYED 1H · FREE TIER
+          <div className="text-terminal-yellow pt-1 border-t border-terminal-border mt-1 flex items-center gap-1">
+            <Warn /> DELAYED 1H · FREE TIER
           </div>
         )}
       </div>

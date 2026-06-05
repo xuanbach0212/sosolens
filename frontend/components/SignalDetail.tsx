@@ -1,4 +1,5 @@
 import type { Signal, SignalType } from "@/types";
+import { VerdictMark, Dot, Check, Bolt, dotVariantFromSignal } from "@/components/icons";
 
 const TYPE_COLOR: Record<SignalType, string> = {
   BUY: "text-terminal-green",
@@ -52,8 +53,8 @@ export default function SignalDetail({ signal }: Props) {
       <div className="overflow-y-auto flex-1 px-4 py-3 space-y-4">
         {/* Header */}
         <div>
-          <div className={`text-[length:var(--fs-verdict)] font-semibold leading-tight ${typeColor}`}>
-            {signal.type === "BUY" ? "🟢" : signal.type === "WATCH" ? "🟡" : "🔴"} {signal.type} SIGNAL — {signal.sector.toUpperCase()}
+          <div className={`text-[length:var(--fs-verdict)] font-semibold leading-tight flex items-center gap-2 ${typeColor}`}>
+            <VerdictMark type={signal.type} /> {signal.type} SIGNAL — {signal.sector.toUpperCase()}
           </div>
           <div className="flex items-center gap-3 mt-2">
             <div className="flex-1">
@@ -98,7 +99,7 @@ export default function SignalDetail({ signal }: Props) {
                   <td className="py-1 text-terminal-muted">{row.name}</td>
                   <td className="py-1 text-right text-terminal-text">{row.value}</td>
                   <td className="py-1 text-right">
-                    {row.signal} {row.arrow ?? ""}
+                    <Dot variant={dotVariantFromSignal(row.signal)} /> {row.arrow ?? ""}
                   </td>
                 </tr>
               ))}
@@ -156,7 +157,7 @@ export default function SignalDetail({ signal }: Props) {
                     >
                       {past.result}
                     </td>
-                    <td className="py-1 text-right">{past.success ? "✅" : "❌"}</td>
+                    <td className="py-1 text-right"><Check ok={past.success} /></td>
                   </tr>
                 ))
               )}
@@ -174,7 +175,7 @@ export default function SignalDetail({ signal }: Props) {
         {signal.sodexPair && signal.sodexPair !== "—" && (
           <div>
             <div className="border border-terminal-border rounded p-3 bg-terminal-panel">
-              <div className="text-[10px] font-bold text-terminal-yellow mb-2">⚡ Trade on SoDEX</div>
+              <div className="text-[10px] font-bold text-terminal-yellow mb-2 flex items-center gap-1"><Bolt /> Trade on SoDEX</div>
               <div className="text-[10px] text-terminal-text mb-0.5">{signal.sodexPair}</div>
               {signal.sodexSlippage && (
                 <div className="text-[10px] text-terminal-muted mb-0.5">
