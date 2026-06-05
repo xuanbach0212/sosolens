@@ -109,3 +109,18 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .tapetrack { animation: none; }
 }
+
+/* Live value flash (#70) — Bloomberg-style green/red pulse on price change */
+@keyframes flash-up {
+  0%   { background-color: rgba(95, 206, 150, 0.40); }
+  100% { background-color: transparent; }
+}
+@keyframes flash-down {
+  0%   { background-color: rgba(224, 112, 96, 0.40); }
+  100% { background-color: transparent; }
+}
+.flash-up   { animation: flash-up   700ms ease-out; border-radius: 2px; }
+.flash-down { animation: flash-down 700ms ease-out; border-radius: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  .flash-up, .flash-down { animation: none; }
+}

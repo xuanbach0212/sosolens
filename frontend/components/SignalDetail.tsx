@@ -1,5 +1,30 @@
 import type { Signal, SignalType } from "@/types";
 import { VerdictMark, Dot, Check, Bolt, dotVariantFromSignal } from "@/components/icons";
+import { usePriceFlash } from "@/hooks/usePriceFlash";
+
+type TokenInfo = Signal["topTokens"][number];
+
+function TokenCard({ token }: { token: TokenInfo }) {
+  const hasPrice = token.price && token.price !== "—";
+  const priceFlash = usePriceFlash(hasPrice ? token.price : undefined);
+  return (
+    <div className="bg-terminal-panel2 border border-transparent rounded px-2 py-1">
+      <div className="text-[10px] font-bold text-terminal-text">{token.symbol}</div>
+      {hasPrice && (
+        <>
+          <div className={`text-[10px] text-terminal-muted px-0.5 ${priceFlash}`}>{token.price}</div>
+          <div
+            className={`text-[10px] ${
+              token.positive ? "text-terminal-green" : "text-terminal-red"
+            }`}
+          >
+            {token.change}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 const TYPE_COLOR: Record<SignalType, string> = {
   BUY: "text-terminal-green",
@@ -112,26 +137,9 @@ export default function SignalDetail({ signal }: Props) {
           <div>
             <SectionHeader title="TOP TOKENS IN SECTOR" />
             <div className="grid grid-cols-3 gap-1">
-              {signal.topTokens.map((token) => {
-                const hasPrice = token.price && token.price !== "—";
-                return (
-                  <div key={token.symbol} className="bg-terminal-panel2 border border-transparent rounded px-2 py-1">
-                    <div className="text-[10px] font-bold text-terminal-text">{token.symbol}</div>
-                    {hasPrice && (
-                      <>
-                        <div className="text-[10px] text-terminal-muted">{token.price}</div>
-                        <div
-                          className={`text-[10px] ${
-                            token.positive ? "text-terminal-green" : "text-terminal-red"
-                          }`}
-                        >
-                          {token.change}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                );
-              })}
+              {signal.topTokens.map((token) => (
+                <TokenCard key={token.symbol} token={token} />
+              ))}
             </div>
           </div>
         )}
