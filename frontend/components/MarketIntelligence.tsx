@@ -16,7 +16,7 @@ function PanelHeader({ title }: { title: string }) {
       <span className="text-[10px] font-bold text-terminal-muted tracking-widest whitespace-nowrap">
         {title}
       </span>
-      <div className="flex-1 border-t border-terminal-border" />
+      <div className="flex-1 border-t border-terminal-bordersoft" />
     </div>
   );
 }

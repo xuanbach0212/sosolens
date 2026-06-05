@@ -36,7 +36,7 @@ function SectionHeader({ title }: { title: string }) {
   return (
     <div className="flex items-center gap-2 mb-2">
       <span className="text-[10px] font-bold text-terminal-muted tracking-widest">{title}</span>
-      <div className="flex-1 border-t border-terminal-border" />
+      <div className="flex-1 border-t border-terminal-bordersoft" />
     </div>
   );
 }
@@ -87,7 +87,7 @@ export default function SignalDetail({ signal }: Props) {
           <SectionHeader title="DATA SOURCES" />
           <table className="w-full text-[10px]">
             <thead>
-              <tr className="text-terminal-muted border-b border-terminal-border">
+              <tr className="text-terminal-muted border-b border-terminal-bordersoft">
                 <th className="text-left pb-1 font-normal">SOURCE</th>
                 <th className="text-right pb-1 font-normal">VALUE</th>
                 <th className="text-right pb-1 font-normal">SIGNAL</th>
@@ -95,7 +95,7 @@ export default function SignalDetail({ signal }: Props) {
             </thead>
             <tbody>
               {signal.dataSources.map((row) => (
-                <tr key={row.name} className="border-b border-terminal-border">
+                <tr key={row.name} className="border-b border-terminal-bordersoft">
                   <td className="py-1 text-terminal-muted">{row.name}</td>
                   <td className="py-1 text-right text-terminal-text">{row.value}</td>
                   <td className="py-1 text-right">
@@ -115,7 +115,7 @@ export default function SignalDetail({ signal }: Props) {
               {signal.topTokens.map((token) => {
                 const hasPrice = token.price && token.price !== "—";
                 return (
-                  <div key={token.symbol} className="bg-terminal-panel border border-terminal-border rounded px-2 py-1">
+                  <div key={token.symbol} className="bg-terminal-panel2 border border-transparent rounded px-2 py-1">
                     <div className="text-[10px] font-bold text-terminal-text">{token.symbol}</div>
                     {hasPrice && (
                       <>
@@ -147,7 +147,7 @@ export default function SignalDetail({ signal }: Props) {
                 </tr>
               ) : (
                 signal.pastSignals.map((past, i) => (
-                  <tr key={i} className="border-b border-terminal-border">
+                  <tr key={i} className="border-b border-terminal-bordersoft">
                     <td className="py-1 text-terminal-muted">{past.date}</td>
                     <td className="py-1 text-terminal-text">{past.label}</td>
                     <td
@@ -174,7 +174,7 @@ export default function SignalDetail({ signal }: Props) {
         {/* SoDEX Trade Button */}
         {signal.sodexPair && signal.sodexPair !== "—" && (
           <div>
-            <div className="border border-terminal-border rounded p-3 bg-terminal-panel">
+            <div className="border border-transparent rounded p-3 bg-terminal-panel2">
               <div className="text-[10px] font-bold text-terminal-yellow mb-2 flex items-center gap-1"><Bolt /> Trade on SoDEX</div>
               <div className="text-[10px] text-terminal-text mb-0.5">{signal.sodexPair}</div>
               {signal.sodexSlippage && (
