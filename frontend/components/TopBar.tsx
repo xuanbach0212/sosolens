@@ -2,6 +2,7 @@ import { useRef } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import type { MarketStatus, PriceSnapshot } from "@/types";
 import { Dot, Warn } from "@/components/icons";
+import { usePriceFlash } from "@/hooks/usePriceFlash";
 
 function fearGreedDisplay(v: number): { className: string; style?: CSSProperties } {
   if (v <= 24) return { className: "text-terminal-red" };
@@ -48,6 +49,15 @@ interface Props {
 
 export default function TopBar({ market, isLoading, isError, isConnected, lastUpdated, walletBar, priceHistory, riskEnvironment, isDemoData }: Props) {
   const prevFearGreed = useRef<number | null>(null);
+
+  const btcFlash = usePriceFlash(market?.btcPrice);
+  const btcChangeFlash = usePriceFlash(market?.btcChange);
+  const ethFlash = usePriceFlash(market?.ethPrice);
+  const ethChangeFlash = usePriceFlash(market?.ethChange);
+  const mcapFlash = usePriceFlash(market?.mcap);
+  const mcapChangeFlash = usePriceFlash(market?.mcapChange);
+  const volFlash = usePriceFlash(market?.vol);
+  const volChangeFlash = usePriceFlash(market?.volChange);
 
   const statusLabel = isError
     ? <span className="text-terminal-red">● RECONNECTING · POLLING FALLBACK</span>
@@ -111,31 +121,31 @@ export default function TopBar({ market, isLoading, isError, isConnected, lastUp
         </span>
         <span className="text-terminal-muted">│</span>
         <span className="flex items-center gap-1">
-          BTC <span className="text-terminal-text">{market?.btcPrice ?? dash}</span>{" "}
-          <span className={market && parseFloat(market.btcChange) >= 0 ? "text-terminal-green" : "text-terminal-red"}>
+          BTC <span className={`text-terminal-text px-0.5 ${btcFlash}`}>{market?.btcPrice ?? dash}</span>{" "}
+          <span className={`px-0.5 ${btcChangeFlash} ${market && parseFloat(market.btcChange) >= 0 ? "text-terminal-green" : "text-terminal-red"}`}>
             {market?.btcChange ?? ""}
           </span>
           <Sparkline data={btcData} color={btcSparkColor} />
         </span>
         <span className="text-terminal-muted">│</span>
         <span className="flex items-center gap-1">
-          ETH <span className="text-terminal-text">{market?.ethPrice ?? dash}</span>{" "}
-          <span className={market && parseFloat(market.ethChange) >= 0 ? "text-terminal-green" : "text-terminal-red"}>
+          ETH <span className={`text-terminal-text px-0.5 ${ethFlash}`}>{market?.ethPrice ?? dash}</span>{" "}
+          <span className={`px-0.5 ${ethChangeFlash} ${market && parseFloat(market.ethChange) >= 0 ? "text-terminal-green" : "text-terminal-red"}`}>
             {market?.ethChange ?? ""}
           </span>
           <Sparkline data={ethData} color={ethSparkColor} />
         </span>
         <span className="text-terminal-muted">│</span>
         <span>
-          MCAP <span className="text-terminal-text">{market?.mcap ?? dash}</span>{" "}
-          <span className={market && parseFloat(market.mcapChange) >= 0 ? "text-terminal-green" : "text-terminal-red"}>
+          MCAP <span className={`text-terminal-text px-0.5 ${mcapFlash}`}>{market?.mcap ?? dash}</span>{" "}
+          <span className={`px-0.5 ${mcapChangeFlash} ${market && parseFloat(market.mcapChange) >= 0 ? "text-terminal-green" : "text-terminal-red"}`}>
             {market?.mcapChange ?? ""}
           </span>
         </span>
         <span className="text-terminal-muted">│</span>
         <span>
-          VOL <span className="text-terminal-text">{market?.vol ?? dash}</span>{" "}
-          <span className={market && parseFloat(market.volChange) >= 0 ? "text-terminal-green" : "text-terminal-red"}>
+          VOL <span className={`text-terminal-text px-0.5 ${volFlash}`}>{market?.vol ?? dash}</span>{" "}
+          <span className={`px-0.5 ${volChangeFlash} ${market && parseFloat(market.volChange) >= 0 ? "text-terminal-green" : "text-terminal-red"}`}>
             {market?.volChange ?? ""}
           </span>
         </span>

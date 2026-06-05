@@ -1,8 +1,9 @@
 'use client';
 
 import type { MarketStatus, Signal } from "@/types";
+import { usePriceFlash } from "@/hooks/usePriceFlash";
 
-interface TapeItem {
+interface TapeItemData {
   symbol: string;
   price: string;
   pctChange: number;
@@ -20,8 +21,8 @@ function parsePct(s: string): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function buildTape(market: MarketStatus | null, signals: Signal[]): TapeItem[] {
-  const out: TapeItem[] = [];
+function buildTape(market: MarketStatus | null, signals: Signal[]): TapeItemData[] {
+  const out: TapeItemData[] = [];
   const seen = new Set<string>();
 
   if (market?.btcPrice) {
@@ -45,20 +46,38 @@ function buildTape(market: MarketStatus | null, signals: Signal[]): TapeItem[] {
   return out;
 }
 
+function TapeItem({ data }: { data: TapeItemData }) {
+  const flash = usePriceFlash(data.price);
+  return (
+    <span className="tapeitem">
+      <span className="tapesym">{data.symbol}</span>
+      <span className={`text-terminal-muted px-0.5 ${flash}`}>{data.price}</span>
+      <span className={data.pctChange >= 0 ? "text-terminal-green" : "text-terminal-red"}>
+        {data.pctChange >= 0 ? "▲" : "▼"} {Math.abs(data.pctChange).toFixed(1)}%
+      </span>
+    </span>
+  );
+}
+
 export default function TickerTape({ market, signals }: Props) {
   const items = buildTape(market, signals);
 
   // Render the row twice so the crawl translateX(-50%) loops seamlessly.
-  const renderRow = (suffix: string) =>
-    items.map((x, i) => (
-      <span key={`${suffix}-${x.symbol}-${i}`} className="tapeitem">
-        <span className="tapesym">{x.symbol}</span>
-        <span className="text-terminal-muted">{x.price}</span>
-        <span className={x.pctChange >= 0 ? "text-terminal-green" : "text-terminal-red"}>
-          {x.pctChange >= 0 ? "▲" : "▼"} {Math.abs(x.pctChange).toFixed(1)}%
+  // Flash only on the first copy — the second is a visual continuation.
+  const renderRow = (suffix: string, flash: boolean) =>
+    items.map((x, i) =>
+      flash ? (
+        <TapeItem key={`${suffix}-${x.symbol}-${i}`} data={x} />
+      ) : (
+        <span key={`${suffix}-${x.symbol}-${i}`} className="tapeitem">
+          <span className="tapesym">{x.symbol}</span>
+          <span className="text-terminal-muted">{x.price}</span>
+          <span className={x.pctChange >= 0 ? "text-terminal-green" : "text-terminal-red"}>
+            {x.pctChange >= 0 ? "▲" : "▼"} {Math.abs(x.pctChange).toFixed(1)}%
+          </span>
         </span>
-      </span>
-    ));
+      )
+    );
 
   return (
     <div className="tape" style={{ gridColumn: "1 / -1", gridRow: "2" }}>
@@ -68,8 +87,8 @@ export default function TickerTape({ market, signals }: Props) {
           <span className="tapeitem text-terminal-muted">CONNECTING...</span>
         ) : (
           <div className="tapetrack">
-            {renderRow("a")}
-            {renderRow("b")}
+            {renderRow("a", true)}
+            {renderRow("b", false)}
           </div>
         )}
       </div>
