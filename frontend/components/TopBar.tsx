@@ -84,12 +84,16 @@ export default function TopBar({ market, isLoading, isError, isConnected, lastUp
 
   return (
     <div
-      className="border-b border-terminal-border bg-terminal-panel px-3 flex flex-col justify-center"
+      className="border-b border-terminal-border bg-terminal-panel px-3 flex items-center whitespace-nowrap overflow-hidden"
       style={{ gridColumn: "1 / -1" }}
     >
-      <div className="flex items-center gap-6 text-xs">
-        <span className="font-bold text-terminal-green tracking-widest">
-          SOSOLENS <span className="animate-pulse">●</span>LIVE
+      <div className="flex items-center gap-2.5 text-xs whitespace-nowrap overflow-hidden w-full">
+        <span
+          className="font-bold text-terminal-green shrink-0"
+          style={{ letterSpacing: "0.22em", textShadow: "0 0 7px rgba(95, 206, 150, 0.55)" }}
+        >
+          SOSOLENS <span className="animate-pulse">●</span>
+          <span style={{ fontSize: "0.82em", letterSpacing: "0.12em" }}>LIVE</span>
         </span>
         {isDemoData && (
           <span className="text-terminal-yellow text-xs border border-terminal-yellow px-1 tracking-wider">
@@ -98,7 +102,7 @@ export default function TopBar({ market, isLoading, isError, isConnected, lastUp
         )}
         <span className="text-terminal-muted">│</span>
         <span>
-          MARKET:{" "}
+          MARKET{" "}
           {market ? (
             <span className={`inline-flex items-center gap-1 ${market.sentimentPositive ? "text-terminal-green" : "text-terminal-red"}`}>
               <Dot variant={market.sentimentPositive ? "up" : "down"} /> {market.sentiment}
@@ -109,7 +113,7 @@ export default function TopBar({ market, isLoading, isError, isConnected, lastUp
         </span>
         <span className="text-terminal-muted">│</span>
         <span>
-          MACRO:{" "}
+          MACRO{" "}
           {(() => {
             const m = macroRegimeDisplay(riskEnvironment);
             return (
@@ -151,7 +155,7 @@ export default function TopBar({ market, isLoading, isError, isConnected, lastUp
         </span>
         <span className="text-terminal-muted">│</span>
         <span className="flex items-center gap-1">
-          FEAR/GREED:{" "}
+          F/G{" "}
           {market ? (
             <>
               <span className={fearGreedStyle!.className} style={fearGreedStyle!.style}>
@@ -168,7 +172,7 @@ export default function TopBar({ market, isLoading, isError, isConnected, lastUp
             <span className="text-terminal-muted">{dash}</span>
           )}
         </span>
-        <span className="ml-auto flex items-center gap-3 text-[10px]">
+        <span className="ml-auto flex items-center gap-3 text-[10px] shrink-0 whitespace-nowrap">
           {statusLabel}
           {walletBar && (
             <>
