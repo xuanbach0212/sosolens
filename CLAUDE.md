@@ -246,4 +246,9 @@ When a task, issue, or feature is complete, always do ALL of the following befor
 - Every wave: write a progress update on Akindo with screenshots/demo links
 - Prioritize on-chain verifiability over off-chain logic
 - Keep the "one person" angle clear in all copy and demos
-- Use SoSoValue API for data — don't pull from CoinGecko or similar
+- SoSoValue API is the primary data source. Only reach for a third-party feed
+  when SoSoValue genuinely exposes no equivalent endpoint, and keep it on the
+  hourly agent loop (not the 30s tick) to respect free rate limits. Current
+  approved exceptions: alternative.me (fear/greed), CoinGecko `/global`
+  (total market cap / 24h volume — SoSoValue has no market-wide total), and
+  FRED (real macro indicator values — Fed rate / CPI / DXY / yields).

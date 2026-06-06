@@ -1,5 +1,6 @@
 import logging
 import httpx
+import backend.cache as cache
 from backend.services.sosovalue import SoSoValueClient
 
 logger = logging.getLogger(__name__)
@@ -15,6 +16,31 @@ async def fetch_fear_greed() -> tuple[int, str] | None:
             return int(entry.get("value", 0)), entry.get("value_classification", "").upper()
     except Exception as exc:
         logger.warning("[currency] fear/greed fetch failed: %s", exc)
+        return None
+
+
+async def fetch_global_market() -> dict | None:
+    """Total crypto market cap + 24h volume + 24h mcap change from CoinGecko /global.
+
+    Free, no API key. SoSoValue exposes no total-market endpoint, so this is the
+    only source for a true market-wide figure. Called ~hourly (not per 30s tick)
+    to stay well within CoinGecko's free rate limit."""
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            r = await client.get("https://api.coingecko.com/api/v3/global")
+            r.raise_for_status()
+            d = r.json().get("data") or {}
+        mcap = float((d.get("total_market_cap") or {}).get("usd") or 0)
+        vol = float((d.get("total_volume") or {}).get("usd") or 0)
+        if mcap <= 0:
+            return None
+        return {
+            "mcap": _fmt_large(mcap),
+            "vol": _fmt_large(vol),
+            "mcapChange": _fmt_change(float(d.get("market_cap_change_percentage_24h_usd") or 0) / 100),
+        }
+    except Exception as exc:
+        logger.warning("[currency] global market fetch failed: %s", exc)
         return None
 
 # Stable numeric currency IDs from GET /currencies list
@@ -142,4 +168,13 @@ async def fetch_market_status(client: SoSoValueClient) -> dict:
     if fg:
         base["fearGreed"] = fg[0]
         base["fearGreedLabel"] = fg[1]
+
+    # Override mcap/vol with true market-wide totals from CoinGecko (cached
+    # hourly under "global_market"); fall back to the BTC+ETH-derived values.
+    glob = cache.get("global_market")
+    if isinstance(glob, dict):
+        base["mcap"] = glob.get("mcap", base["mcap"])
+        base["vol"] = glob.get("vol", base["vol"])
+        base["mcapChange"] = glob.get("mcapChange", base["mcapChange"])
+
     return base

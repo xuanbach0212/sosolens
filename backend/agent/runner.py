@@ -122,8 +122,17 @@ async def _refresh_panel_cache() -> None:
     from backend.services.sector import fetch_sector_flows
     from backend.services.btc_treasuries import fetch_btc_treasuries
     from backend.services.news import fetch_news_headlines
-    from backend.services.currency import fetch_market_status
+    from backend.services.currency import fetch_market_status, fetch_global_market
     client = get_client()
+    # Total market cap/volume from CoinGecko — refreshed here (hourly) rather
+    # than on the 30s tick to respect CoinGecko's free rate limit.
+    try:
+        glob = await fetch_global_market()
+        if glob:
+            cache.put("global_market", glob)
+            logger.info("[agent] cache: global_market updated")
+    except Exception as exc:
+        logger.warning("[agent] cache: global_market failed: %s", exc)
     # Market status first — most visible data, fewest calls (2)
     try:
         cache.put("market_status", await fetch_market_status(client))
