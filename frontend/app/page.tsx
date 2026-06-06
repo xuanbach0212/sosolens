@@ -79,7 +79,7 @@ export default function Page() {
             />
           }
         />
-        <TickerTape market={market} signals={signals} />
+        <TickerTape market={market} signals={signals} sectorFlows={sectorFlows} />
         <SignalFeed
           signals={signals}
           selectedId={effectiveId ?? ""}
