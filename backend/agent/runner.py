@@ -156,6 +156,18 @@ async def _refresh_panel_cache() -> None:
 _MAX_SIGNAL_AGE_HOURS = 25
 
 
+def format_time_ago(delta: timedelta) -> str:
+    """Mockup-style relative time label: 'just now' / '4m ago' / '2h ago' / '3d ago'."""
+    secs = int(delta.total_seconds())
+    if secs < 5 * 60:
+        return "just now"
+    if secs < 3600:
+        return f"{secs // 60}m ago"
+    if secs < 24 * 3600:
+        return f"{secs // 3600}h ago"
+    return f"{secs // (24 * 3600)}d ago"
+
+
 def _record_signal_entries(active_signals: dict[str, str], btc_price: float) -> None:
     cutoff = datetime.now(timezone.utc) - timedelta(hours=20)
     with get_db() as db:
@@ -251,7 +263,7 @@ def _enrich_with_outcomes(db, payloads: list[dict]) -> tuple[list[dict], int]:
 
 def build_full_snapshot() -> dict:
     with get_db() as db:
-        rows = db.scalars(select(Signal)).all()
+        rows = db.scalars(select(Signal).order_by(Signal.updated_at.desc())).all()
         now = datetime.now(timezone.utc)
         payloads = []
         for s in rows:
@@ -261,15 +273,8 @@ def build_full_snapshot() -> dict:
             delta = now - updated
             if delta.total_seconds() > _MAX_SIGNAL_AGE_HOURS * 3600:
                 continue  # skip stale signals
-            hours = int(delta.total_seconds() // 3600)
-            minutes = int(delta.total_seconds() // 60)
             p = dict(s.payload)
-            if hours == 0:
-                p["timeAgo"] = "just now" if minutes < 5 else f"{minutes}m ago"
-            elif hours < 24:
-                p["timeAgo"] = f"{hours}h ago"
-            else:
-                p["timeAgo"] = f"{delta.days}d ago"
+            p["timeAgo"] = format_time_ago(delta)
             payloads.append(p)
         payloads, global_acc = _enrich_with_outcomes(db, payloads)
 
