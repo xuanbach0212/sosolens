@@ -62,10 +62,41 @@ export function useSubscription(wallet: string | null): SubscriptionState {
   }, [wallet, checkStatus]);
 
   const subscribe = useCallback(async () => {
-    if (!wallet || !CONTRACT_ADDRESS || !window.ethereum) return;
+    if (!wallet || !window.ethereum) return;
+    if (!CONTRACT_ADDRESS) {
+      setStep('error');
+      setError('Subscription contract not configured — set NEXT_PUBLIC_SUBSCRIPTION_CONTRACT_ADDRESS');
+      return;
+    }
     setError(null);
 
     try {
+      // Switch to Base Sepolia if needed
+      const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+      if (chainId !== '0x14a34') {
+        try {
+          await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: '0x14a34' }],
+          });
+        } catch (switchErr: unknown) {
+          if ((switchErr as { code?: number }).code === 4902) {
+            await window.ethereum.request({
+              method: 'wallet_addEthereumChain',
+              params: [{
+                chainId: '0x14a34',
+                chainName: 'Base Sepolia',
+                nativeCurrency: { name: 'Ethereum', symbol: 'ETH', decimals: 18 },
+                rpcUrls: ['https://sepolia.base.org'],
+                blockExplorerUrls: ['https://sepolia.basescan.org'],
+              }],
+            });
+          } else {
+            throw switchErr;
+          }
+        }
+      }
+
       const publicClient = createPublicClient({ chain: baseSepolia, transport: http() });
       const walletClient = createWalletClient({
         chain: baseSepolia,

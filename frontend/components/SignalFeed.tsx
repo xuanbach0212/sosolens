@@ -1,19 +1,14 @@
 'use client';
 
+import { useEffect, useRef, useState } from "react";
 import type { Signal, SignalType, SignalOutcomeBlock } from "@/types";
+import { VerdictMark, Warn } from "@/components/icons";
 
 const TYPE_COLOR: Record<SignalType, string> = {
   BUY: "text-terminal-green border-terminal-green",
   SELL: "text-terminal-red border-terminal-red",
   WATCH: "text-terminal-yellow border-terminal-yellow",
   AVOID: "text-terminal-red border-terminal-red",
-};
-
-const TYPE_EMOJI: Record<SignalType, string> = {
-  BUY: "🟢",
-  SELL: "🔴",
-  WATCH: "🟡",
-  AVOID: "🔴",
 };
 
 interface Props {
@@ -34,10 +29,41 @@ const OUTCOME_COLOR: Record<string, string> = {
 };
 
 export default function SignalFeed({ signals, selectedId, onSelect, stats, isLoading, isPremium, signalOutcomes = [] }: Props) {
+  // Track which signal IDs have been seen so we can flag fresh arrivals.
+  // First render seeds the set without pulsing — avoids a flash on initial load.
+  const seenIdsRef = useRef<Set<string> | null>(null);
+  const [freshIds, setFreshIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const currentIds = new Set(signals.map((s) => s.id));
+    if (seenIdsRef.current === null) {
+      seenIdsRef.current = currentIds;
+      return;
+    }
+    const seen = seenIdsRef.current;
+    const newIds = [...currentIds].filter((id) => !seen.has(id));
+    seenIdsRef.current = currentIds;
+    if (newIds.length === 0) return;
+
+    setFreshIds((prev) => {
+      const next = new Set(prev);
+      newIds.forEach((id) => next.add(id));
+      return next;
+    });
+    const t = setTimeout(() => {
+      setFreshIds((prev) => {
+        const next = new Set(prev);
+        newIds.forEach((id) => next.delete(id));
+        return next;
+      });
+    }, 2000);
+    return () => clearTimeout(t);
+  }, [signals]);
+
   return (
     <div
       className="border-r border-terminal-border flex flex-col overflow-hidden"
-      style={{ gridColumn: "1", gridRow: "2" }}
+      style={{ gridColumn: "1", gridRow: "3" }}
     >
       <div className="px-3 py-2 border-b border-terminal-border">
         <span className="text-xs font-bold text-terminal-muted tracking-widest">SIGNALS</span>
@@ -54,34 +80,59 @@ export default function SignalFeed({ signals, selectedId, onSelect, stats, isLoa
             First signals in ~60s
           </div>
         ) : (
-          signals.map((signal) => {
-            const isActive = signal.id === selectedId;
-            const colorClass = TYPE_COLOR[signal.type];
-            return (
-              <button
-                key={signal.id}
-                onClick={() => onSelect(signal.id)}
-                className={`w-full text-left px-3 py-2 border-b border-terminal-border border-l-2 cursor-pointer transition-colors ${
-                  isActive
-                    ? `border-l-current bg-terminal-panel ${colorClass}`
-                    : "border-l-transparent hover:bg-terminal-panel"
-                }`}
-              >
-                <div className={`text-xs font-bold ${colorClass.split(" ")[0]}`}>
-                  {TYPE_EMOJI[signal.type]} {signal.type}
+          // Group signals by sector while preserving the newest-first order
+          // already baked in by the backend (ORDER BY updated_at DESC).
+          (() => {
+            const grouped = new Map<string, Signal[]>();
+            for (const sig of signals) {
+              const arr = grouped.get(sig.sector) ?? [];
+              arr.push(sig);
+              grouped.set(sig.sector, arr);
+            }
+            return Array.from(grouped.entries()).map(([sector, sigs]) => (
+              <div key={sector}>
+                <div className="px-3 pt-2 pb-1 bg-terminal-panel/40 border-b border-terminal-bordersoft flex items-baseline gap-2">
+                  <span
+                    className="text-[9px] font-bold text-terminal-text tracking-widest truncate"
+                    title={sector}
+                  >
+                    {sector.toUpperCase()}
+                  </span>
+                  <span className="text-[9px] text-terminal-muted">
+                    {sigs.length} signal{sigs.length !== 1 ? "s" : ""}
+                  </span>
                 </div>
-                <div className="text-[11px] text-terminal-text mt-0.5">{signal.sector}</div>
-                <div className="text-[10px] text-terminal-muted mt-0.5">
-                  {signal.confidence}% · {signal.risk} · {signal.timeAgo}
-                </div>
-              </button>
-            );
-          })
+                {sigs.map((signal) => {
+                  const isActive = signal.id === selectedId;
+                  const isFresh = freshIds.has(signal.id);
+                  const colorClass = TYPE_COLOR[signal.type];
+                  return (
+                    <button
+                      key={signal.id}
+                      onClick={() => onSelect(signal.id)}
+                      className={`w-full text-left px-3 py-2 border-b border-terminal-bordersoft border-l-2 cursor-pointer transition-colors ${
+                        isActive
+                          ? `border-l-current bg-terminal-panel ${colorClass}`
+                          : "border-l-transparent hover:bg-terminal-panel"
+                      } ${isFresh ? "new-signal-pulse" : ""}`}
+                    >
+                      <div className={`text-[length:var(--fs-feedtype)] font-bold tracking-wide flex items-center gap-1 ${colorClass.split(" ")[0]}`}>
+                        <VerdictMark type={signal.type} /> {signal.type}
+                      </div>
+                      <div className="text-[10px] text-terminal-muted mt-0.5">
+                        {signal.confidence}% · {signal.risk} · {signal.timeAgo}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            ));
+          })()
         )}
       </div>
 
       <div className="px-3 py-2 border-t border-terminal-border">
-        <div className="text-[9px] text-terminal-muted tracking-widest mb-1">OUTCOME TRAIL (48H)</div>
+        <div className="text-[9px] text-terminal-muted tracking-widest mb-1">OUTCOME TRAIL · 48H</div>
         {signalOutcomes.length === 0 ? (
           <div className="text-[9px] text-terminal-muted italic">no outcomes yet</div>
         ) : (
@@ -113,8 +164,8 @@ export default function SignalFeed({ signals, selectedId, onSelect, stats, isLoa
           </span>
         </div>
         {isPremium === false && (
-          <div className="text-terminal-yellow pt-1 border-t border-terminal-border mt-1">
-            ⚠ DELAYED 1H · FREE TIER
+          <div className="text-terminal-yellow pt-1 border-t border-terminal-bordersoft mt-1 flex items-center gap-1">
+            <Warn /> DELAYED 1H · FREE TIER
           </div>
         )}
       </div>

@@ -8,6 +8,7 @@ import type {
   SectorFlow,
   EtfFlow,
   MacroItem,
+  MacroEvent,
   BtcTreasury,
   VcActivity,
   NewsHeadline,
@@ -26,6 +27,7 @@ export interface DashboardData {
   sectorFlows: SectorFlow[];
   etfFlows: EtfFlow[];
   macroStatus: MacroItem[];
+  upcomingEvents: MacroEvent[];
   riskEnvironment: string;
   btcTreasuries: BtcTreasury[];
   vcActivity: VcActivity[];
@@ -39,6 +41,7 @@ export interface DashboardData {
   isError: boolean;
   isConnected: boolean;
   lastUpdated: Date | null;
+  agentRunTick: number;
   refresh: () => void;
 }
 
@@ -49,6 +52,7 @@ export function useDashboardData(wallet?: string): DashboardData {
   const [sectorFlows, setSectorFlows] = useState<SectorFlow[]>([]);
   const [etfFlows, setEtfFlows] = useState<EtfFlow[]>([]);
   const [macroStatus, setMacroStatus] = useState<MacroItem[]>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<MacroEvent[]>([]);
   const [riskEnvironment, setRiskEnvironment] = useState<string>("neutral");
   const [btcTreasuries, setBtcTreasuries] = useState<BtcTreasury[]>([]);
   const [vcActivity, setVcActivity] = useState<VcActivity[]>([]);
@@ -62,6 +66,7 @@ export function useDashboardData(wallet?: string): DashboardData {
   const [isError, setIsError] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [agentRunTick, setAgentRunTick] = useState(0);
 
   const fetchAll = useCallback(async () => {
     setIsLoading(true);
@@ -94,7 +99,7 @@ export function useDashboardData(wallet?: string): DashboardData {
           sigRes.json(), mktRes.json(),
           safeJson(secRes, { sectorFlows: [] }),
           safeJson(etfRes, { etfFlows: [] }),
-          safeJson(macRes, { macroStatus: [], riskEnvironment: 'neutral' }),
+          safeJson(macRes, { macroStatus: [] as MacroItem[], riskEnvironment: 'neutral', upcomingEvents: [] as MacroEvent[] }),
           safeJson(btcRes, { btcTreasuries: [] }),
           safeJson(vcRes, { vcActivity: [] }),
           safeJson(newsRes, { aiBriefing: [], newsHeadlines: [] }),
@@ -110,6 +115,7 @@ export function useDashboardData(wallet?: string): DashboardData {
       setSectorFlows(secData.sectorFlows ?? []);
       setEtfFlows(etfData.etfFlows ?? []);
       setMacroStatus(macData.macroStatus ?? []);
+      setUpcomingEvents(macData.upcomingEvents ?? []);
       setRiskEnvironment(macData.riskEnvironment ?? "neutral");
       setBtcTreasuries(btcData.btcTreasuries ?? []);
       setVcActivity(vcData.vcActivity ?? []);
@@ -119,6 +125,7 @@ export function useDashboardData(wallet?: string): DashboardData {
       setSignalOutcomes(soData.signalOutcomes ?? []);
       setEtfHistory(ehData.etfHistory ?? []);
       setLastUpdated(new Date());
+      setAgentRunTick((t) => t + 1);
     } catch {
       setIsError(true);
     } finally {
@@ -153,6 +160,14 @@ export function useDashboardData(wallet?: string): DashboardData {
       } catch {
         return;
       }
+      // Agent run snapshots carry the full payload; market-only refreshes (30s
+      // cadence) just send {market: ...}. Tick when an agent field is present.
+      const isAgentRun =
+        snap.signals !== undefined ||
+        snap.sectorFlows !== undefined ||
+        snap.btcTreasuries !== undefined;
+      if (isAgentRun) setAgentRunTick((t) => t + 1);
+
       if (snap.signals) setSignals(snap.signals as Signal[]);
       if (snap.stats) setStats(snap.stats as SignalStats);
       if (snap.market) setMarket(snap.market as MarketStatus);
@@ -160,6 +175,7 @@ export function useDashboardData(wallet?: string): DashboardData {
       if (snap.sectorFlows) setSectorFlows(snap.sectorFlows as SectorFlow[]);
       if (snap.etfFlows) setEtfFlows(snap.etfFlows as EtfFlow[]);
       if (snap.macroStatus) setMacroStatus(snap.macroStatus as MacroItem[]);
+      if (snap.upcomingEvents) setUpcomingEvents(snap.upcomingEvents as MacroEvent[]);
       if (snap.riskEnvironment) setRiskEnvironment(snap.riskEnvironment as string);
       if (snap.btcTreasuries) setBtcTreasuries(snap.btcTreasuries as BtcTreasury[]);
       if (snap.vcActivity) setVcActivity(snap.vcActivity as VcActivity[]);
@@ -189,6 +205,7 @@ export function useDashboardData(wallet?: string): DashboardData {
     sectorFlows,
     etfFlows,
     macroStatus,
+    upcomingEvents,
     riskEnvironment,
     btcTreasuries,
     vcActivity,
@@ -202,6 +219,7 @@ export function useDashboardData(wallet?: string): DashboardData {
     isError,
     isConnected,
     lastUpdated,
+    agentRunTick,
     refresh: fetchAll,
   };
 }

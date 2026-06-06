@@ -1,8 +1,11 @@
 import logging
+import backend.cache as cache
+from backend.agent.tokens import token_from_cache
 from backend.services.sosovalue import get_client
 from backend.services.btc_treasuries import fetch_btc_treasuries
 
 logger = logging.getLogger(__name__)
+
 
 BUY_THRESHOLD = 1_000     # net weekly BTC >= +1,000 → BUY
 AVOID_THRESHOLD = -500    # net weekly BTC <= -500   → AVOID
@@ -13,6 +16,7 @@ class BtcAccumulationDetector:
         try:
             client = get_client()
             data = await fetch_btc_treasuries(client)
+            cache.put("btc_treasuries", data)
         except Exception as exc:
             logger.warning("[btc_accumulation] fetch failed: %s", exc)
             return []
@@ -64,7 +68,7 @@ class BtcAccumulationDetector:
         return [{
             "id": "btc-accumulation",
             "type": sig_type,
-            "sector": "BTC Treasury Accumulation",
+            "sector": "BTC Treasury",
             "timeAgo": "0h",
             "dataSources": [
                 {"name": "Net Weekly Δ", "value": _fmt_net(net_weekly), "signal": net_signal, "arrow": net_arrow},
@@ -72,8 +76,8 @@ class BtcAccumulationDetector:
                 {"name": "Buying / Selling", "value": f"{n_buying} / {n_selling} companies", "signal": ratio_signal},
             ],
             "topTokens": [
-                {"symbol": "BTC", "price": "—", "change": "—", "positive": net_weekly > 0},
-                {"symbol": "MSTR", "price": "—", "change": "—", "positive": bool(buying)},
+                token_from_cache("BTC", net_weekly > 0),
+                token_from_cache("MSTR", bool(buying)),
             ],
             "pastSignals": [],
             "accuracy": 0,

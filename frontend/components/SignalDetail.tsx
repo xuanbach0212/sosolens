@@ -1,4 +1,30 @@
 import type { Signal, SignalType } from "@/types";
+import { VerdictMark, Dot, Check, Bolt, dotVariantFromSignal } from "@/components/icons";
+import { usePriceFlash } from "@/hooks/usePriceFlash";
+
+type TokenInfo = Signal["topTokens"][number];
+
+function TokenCard({ token }: { token: TokenInfo }) {
+  const hasPrice = token.price && token.price !== "—";
+  const priceFlash = usePriceFlash(hasPrice ? token.price : undefined);
+  return (
+    <div className="bg-terminal-panel2 border border-transparent rounded px-2 py-1">
+      <div className="text-[10px] font-bold text-terminal-text">{token.symbol}</div>
+      {hasPrice && (
+        <>
+          <div className={`text-[10px] text-terminal-muted px-0.5 ${priceFlash}`}>{token.price}</div>
+          <div
+            className={`text-[10px] ${
+              token.positive ? "text-terminal-green" : "text-terminal-red"
+            }`}
+          >
+            {token.change}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 const TYPE_COLOR: Record<SignalType, string> = {
   BUY: "text-terminal-green",
@@ -35,7 +61,7 @@ function SectionHeader({ title }: { title: string }) {
   return (
     <div className="flex items-center gap-2 mb-2">
       <span className="text-[10px] font-bold text-terminal-muted tracking-widest">{title}</span>
-      <div className="flex-1 border-t border-terminal-border" />
+      <div className="flex-1 border-t border-terminal-bordersoft" />
     </div>
   );
 }
@@ -47,13 +73,13 @@ export default function SignalDetail({ signal }: Props) {
   return (
     <div
       className="border-r border-terminal-border flex flex-col overflow-hidden"
-      style={{ gridColumn: "2", gridRow: "2" }}
+      style={{ gridColumn: "2", gridRow: "3" }}
     >
       <div className="overflow-y-auto flex-1 px-4 py-3 space-y-4">
         {/* Header */}
         <div>
-          <div className={`text-sm font-bold ${typeColor}`}>
-            {signal.type === "BUY" ? "🟢" : signal.type === "WATCH" ? "🟡" : "🔴"} {signal.type} SIGNAL — {signal.sector.toUpperCase()}
+          <div className={`text-[length:var(--fs-verdict)] font-semibold leading-tight flex items-center gap-2 ${typeColor}`}>
+            <VerdictMark type={signal.type} /> {signal.type} SIGNAL — {signal.sector.toUpperCase()}
           </div>
           <div className="flex items-center gap-3 mt-2">
             <div className="flex-1">
@@ -86,7 +112,7 @@ export default function SignalDetail({ signal }: Props) {
           <SectionHeader title="DATA SOURCES" />
           <table className="w-full text-[10px]">
             <thead>
-              <tr className="text-terminal-muted border-b border-terminal-border">
+              <tr className="text-terminal-muted border-b border-terminal-bordersoft">
                 <th className="text-left pb-1 font-normal">SOURCE</th>
                 <th className="text-right pb-1 font-normal">VALUE</th>
                 <th className="text-right pb-1 font-normal">SIGNAL</th>
@@ -94,11 +120,11 @@ export default function SignalDetail({ signal }: Props) {
             </thead>
             <tbody>
               {signal.dataSources.map((row) => (
-                <tr key={row.name} className="border-b border-terminal-border">
+                <tr key={row.name} className="border-b border-terminal-bordersoft">
                   <td className="py-1 text-terminal-muted">{row.name}</td>
                   <td className="py-1 text-right text-terminal-text">{row.value}</td>
                   <td className="py-1 text-right">
-                    {row.signal} {row.arrow ?? ""}
+                    <Dot variant={dotVariantFromSignal(row.signal)} /> {row.arrow ?? ""}
                   </td>
                 </tr>
               ))}
@@ -111,26 +137,9 @@ export default function SignalDetail({ signal }: Props) {
           <div>
             <SectionHeader title="TOP TOKENS IN SECTOR" />
             <div className="grid grid-cols-3 gap-1">
-              {signal.topTokens.map((token) => {
-                const hasPrice = token.price && token.price !== "—";
-                return (
-                  <div key={token.symbol} className="bg-terminal-panel border border-terminal-border rounded px-2 py-1">
-                    <div className="text-[10px] font-bold text-terminal-text">{token.symbol}</div>
-                    {hasPrice && (
-                      <>
-                        <div className="text-[10px] text-terminal-muted">{token.price}</div>
-                        <div
-                          className={`text-[10px] ${
-                            token.positive ? "text-terminal-green" : "text-terminal-red"
-                          }`}
-                        >
-                          {token.change}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                );
-              })}
+              {signal.topTokens.map((token) => (
+                <TokenCard key={token.symbol} token={token} />
+              ))}
             </div>
           </div>
         )}
@@ -146,7 +155,7 @@ export default function SignalDetail({ signal }: Props) {
                 </tr>
               ) : (
                 signal.pastSignals.map((past, i) => (
-                  <tr key={i} className="border-b border-terminal-border">
+                  <tr key={i} className="border-b border-terminal-bordersoft">
                     <td className="py-1 text-terminal-muted">{past.date}</td>
                     <td className="py-1 text-terminal-text">{past.label}</td>
                     <td
@@ -156,7 +165,7 @@ export default function SignalDetail({ signal }: Props) {
                     >
                       {past.result}
                     </td>
-                    <td className="py-1 text-right">{past.success ? "✅" : "❌"}</td>
+                    <td className="py-1 text-right"><Check ok={past.success} /></td>
                   </tr>
                 ))
               )}
@@ -173,8 +182,8 @@ export default function SignalDetail({ signal }: Props) {
         {/* SoDEX Trade Button */}
         {signal.sodexPair && signal.sodexPair !== "—" && (
           <div>
-            <div className="border border-terminal-border rounded p-3 bg-terminal-panel">
-              <div className="text-[10px] font-bold text-terminal-yellow mb-2">⚡ Trade on SoDEX</div>
+            <div className="border border-transparent rounded p-3 bg-terminal-panel2">
+              <div className="text-[10px] font-bold text-terminal-yellow mb-2 flex items-center gap-1"><Bolt /> Trade on SoDEX</div>
               <div className="text-[10px] text-terminal-text mb-0.5">{signal.sodexPair}</div>
               {signal.sodexSlippage && (
                 <div className="text-[10px] text-terminal-muted mb-0.5">

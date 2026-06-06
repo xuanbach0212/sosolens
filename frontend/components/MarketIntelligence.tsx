@@ -1,4 +1,5 @@
-import type { SectorFlow, EtfFlow, MacroItem, BtcTreasury, VcActivity, EtfFlowSnapshot } from "@/types";
+import { useEffect, useState } from "react";
+import type { SectorFlow, EtfFlow, MacroItem, BtcTreasury, VcActivity, EtfFlowSnapshot, MacroEvent } from "@/types";
 
 interface Props {
   sectorFlows: SectorFlow[];
@@ -7,6 +8,8 @@ interface Props {
   btcTreasuries: BtcTreasury[];
   vcActivity: VcActivity[];
   etfHistory?: EtfFlowSnapshot[];
+  upcomingEvents?: MacroEvent[];
+  agentRunTick: number;
 }
 
 function PanelHeader({ title }: { title: string }) {
@@ -15,7 +18,7 @@ function PanelHeader({ title }: { title: string }) {
       <span className="text-[10px] font-bold text-terminal-muted tracking-widest whitespace-nowrap">
         {title}
       </span>
-      <div className="flex-1 border-t border-terminal-border" />
+      <div className="flex-1 border-t border-terminal-bordersoft" />
     </div>
   );
 }
@@ -34,7 +37,7 @@ function sectorFlowStyle(change: number): { bg: string; textClass: string } {
   return { bg: "rgba(255,255,255,0.04)", textClass: "text-terminal-muted" };
 }
 
-function EtfBarChart({ data, width = 120, height = 14 }: { data: number[]; width?: number; height?: number }) {
+function EtfBarChart({ data, width = 120, height = 22 }: { data: number[]; width?: number; height?: number }) {
   if (data.length === 0) return null;
   const BUCKETS = 7;
   const bucketSize = Math.ceil(data.length / BUCKETS);
@@ -53,8 +56,8 @@ function EtfBarChart({ data, width = 120, height = 14 }: { data: number[]; width
         const barH = Math.max(2, normalized * (height - 2));
         const x = i * (barW + gap);
         const y = height - barH;
-        const fill = v >= 0 ? "#00ff88" : "#ff4444";
-        return <rect key={i} x={x} y={y} width={Math.max(1, barW)} height={barH} fill={fill} opacity={0.75} />;
+        const fillVar = v >= 0 ? "var(--color-terminal-green)" : "var(--color-terminal-red)";
+        return <rect key={i} x={x} y={y} width={Math.max(1, barW)} height={barH} style={{ fill: fillVar }} opacity={0.75} />;
       })}
     </svg>
   );
@@ -67,15 +70,26 @@ export default function MarketIntelligence({
   btcTreasuries,
   vcActivity,
   etfHistory = [],
+  upcomingEvents = [],
+  agentRunTick,
 }: Props) {
+  const [pulse, setPulse] = useState(false);
+  useEffect(() => {
+    if (agentRunTick === 0) return;
+    setPulse(true);
+    const t = setTimeout(() => setPulse(false), 1500);
+    return () => clearTimeout(t);
+  }, [agentRunTick]);
+  const panelCls = pulse ? "sync-pulse" : "";
+
   return (
     <div
       className="flex flex-col overflow-y-auto px-3 py-3 space-y-4"
-      style={{ gridColumn: "3", gridRow: "2" }}
+      style={{ gridColumn: "3", gridRow: "3" }}
     >
       {/* Sector Flows */}
-      <div>
-        <PanelHeader title="SECTOR FLOWS (7D)" />
+      <div className={panelCls}>
+        <PanelHeader title="SECTOR FLOWS · 7D" />
         {sectorFlows.length === 0 && (
           <div className="text-[10px] text-terminal-muted italic">Loading...</div>
         )}
@@ -100,8 +114,8 @@ export default function MarketIntelligence({
       </div>
 
       {/* ETF Flows */}
-      <div>
-        <PanelHeader title="ETF FLOWS (7D)" />
+      <div className={panelCls}>
+        <PanelHeader title="ETF FLOWS · 7D" />
         {etfFlows.length === 0 && (
           <div className="text-[10px] text-terminal-muted italic">Loading...</div>
         )}
@@ -133,7 +147,7 @@ export default function MarketIntelligence({
       </div>
 
       {/* Macro Status */}
-      <div>
+      <div className={panelCls}>
         <PanelHeader title="MACRO STATUS" />
         {macroStatus.length === 0 && (
           <div className="text-[10px] text-terminal-muted italic">Loading...</div>
@@ -151,7 +165,7 @@ export default function MarketIntelligence({
       </div>
 
       {/* BTC Treasuries */}
-      <div>
+      <div className={panelCls}>
         <PanelHeader title="BTC TREASURIES" />
         {btcTreasuries.length === 0 && (
           <div className="text-[10px] text-terminal-muted italic">Loading...</div>
@@ -180,9 +194,30 @@ export default function MarketIntelligence({
         </div>
       </div>
 
+      {/* Upcoming Events */}
+      {upcomingEvents.length > 0 && (
+        <div className={panelCls}>
+          <PanelHeader title="UPCOMING EVENTS · 14D" />
+          <div className="space-y-0.5">
+            {upcomingEvents.slice(0, 6).map((e, i) => {
+              const label = e.events.slice(0, 2).join(", ");
+              const when = e.days_until === 0 ? "today" : `in ${e.days_until}d`;
+              return (
+                <div key={i} className="flex justify-between text-[10px]">
+                  <span className="text-terminal-muted truncate mr-2 flex-1">{label}</span>
+                  <span className={e.high_impact && e.days_until <= 7 ? "text-terminal-yellow shrink-0" : "text-terminal-text shrink-0"}>
+                    {when}{e.high_impact && e.days_until <= 7 ? " ⚠" : ""}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* VC Activity */}
-      <div>
-        <PanelHeader title="VC ACTIVITY (7D)" />
+      <div className={panelCls}>
+        <PanelHeader title="VC ACTIVITY · 7D" />
         {vcActivity.length === 0 && (
           <div className="text-[10px] text-terminal-muted italic">Loading...</div>
         )}

@@ -1,8 +1,8 @@
 import logging
 import backend.cache as cache
+from backend.agent.tokens import token_from_cache
 from backend.services.sosovalue import get_client
 from backend.services.etf import fetch_etf_data
-from backend.services.currency import fetch_btc_eth_prices
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,9 @@ class ETFFlowSpikeDetector:
         cache.put("etf_flows", snapshot)
         cache.put("etf_raw", {"btc": btc_raw, "eth": eth_raw, "total": total})
 
-        btc_token, eth_token = await fetch_btc_eth_prices(client)
+        # market_status is populated by the prioritized _refresh_market_cache bootstrap
+        btc_token = token_from_cache("BTC", btc_raw >= 0)
+        eth_token = token_from_cache("ETH", eth_raw >= 0)
 
         if total > STRONG_BUY_USD:
             sig_type = "BUY"
@@ -47,7 +49,7 @@ class ETFFlowSpikeDetector:
         return [{
             "id": "etf-flow-spike",
             "type": sig_type,
-            "sector": "BTC/ETH ETF",
+            "sector": "ETF Flows",
             "timeAgo": "0h",
             "dataSources": [
                 {"name": "ETF Net Inflow (24h)", "value": _fmt(total), "signal": flow_signal, "arrow": flow_arrow},

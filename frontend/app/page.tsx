@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import TopBar from "@/components/TopBar";
+import TickerTape from "@/components/TickerTape";
 import SignalFeed from "@/components/SignalFeed";
 import SignalDetail from "@/components/SignalDetail";
 import MarketIntelligence from "@/components/MarketIntelligence";
@@ -24,6 +25,7 @@ export default function Page() {
     sectorFlows,
     etfFlows,
     macroStatus,
+    upcomingEvents,
     riskEnvironment,
     btcTreasuries,
     vcActivity,
@@ -37,6 +39,7 @@ export default function Page() {
     isError,
     isConnected,
     lastUpdated,
+    agentRunTick,
   } = useDashboardData(wallet.address ?? undefined);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -51,7 +54,7 @@ export default function Page() {
       <div
         className="h-screen overflow-hidden grid"
         style={{
-          gridTemplateRows: "48px 1fr 90px",
+          gridTemplateRows: "48px 26px 1fr 90px",
           gridTemplateColumns: "220px 1fr 260px",
         }}
       >
@@ -76,6 +79,7 @@ export default function Page() {
             />
           }
         />
+        <TickerTape market={market} signals={signals} sectorFlows={sectorFlows} />
         <SignalFeed
           signals={signals}
           selectedId={effectiveId ?? ""}
@@ -90,7 +94,7 @@ export default function Page() {
         ) : (
           <div
             className="border-r border-terminal-border flex items-center justify-center text-terminal-muted text-[10px] tracking-widest"
-            style={{ gridColumn: "2", gridRow: "2" }}
+            style={{ gridColumn: "2", gridRow: "3" }}
           >
             {isLoading ? "CONNECTING TO AGENT..." : "AGENT RUNNING · FIRST SIGNALS IN ~60s"}
           </div>
@@ -99,9 +103,11 @@ export default function Page() {
           sectorFlows={sectorFlows}
           etfFlows={etfFlows}
           macroStatus={macroStatus}
+          upcomingEvents={upcomingEvents}
           btcTreasuries={btcTreasuries}
           vcActivity={vcActivity}
           etfHistory={etfHistory}
+          agentRunTick={agentRunTick}
         />
         <BottomBar briefing={aiBriefing} news={newsHeadlines} lastUpdated={lastUpdated} />
       </div>

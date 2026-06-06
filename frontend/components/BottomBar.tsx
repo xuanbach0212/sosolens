@@ -1,4 +1,5 @@
 import type { NewsHeadline } from "@/types";
+import { Warn } from "@/components/icons";
 
 interface Props {
   briefing: string[];
@@ -7,10 +8,10 @@ interface Props {
 }
 
 function formatTimestamp(d: Date): string {
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const h = String(d.getUTCHours()).padStart(2, '0');
   const m = String(d.getUTCMinutes()).padStart(2, '0');
-  return `${months[d.getUTCMonth()]} ${d.getUTCDate()} · ${h}:${m} UTC`;
+  const s = String(d.getUTCSeconds()).padStart(2, '0');
+  return `${h}:${m}:${s} UTC`;
 }
 
 export default function BottomBar({ briefing, news, lastUpdated }: Props) {
@@ -29,7 +30,11 @@ export default function BottomBar({ briefing, news, lastUpdated }: Props) {
             <div className="text-[10px] text-terminal-muted italic">AI briefing generating...</div>
           ) : (
             briefing.map((point, i) => (
-              <div key={i} className="text-[10px] text-terminal-text truncate">
+              <div
+                key={i}
+                className="text-[10px] text-terminal-text whitespace-nowrap overflow-hidden text-ellipsis"
+                title={point}
+              >
                 <span className="text-terminal-green mr-1">{i + 1}.</span>
                 {point}
               </div>
@@ -55,7 +60,7 @@ export default function BottomBar({ briefing, news, lastUpdated }: Props) {
                 {item.text}{" "}
                 <span className="text-terminal-muted">— {item.source}</span>
                 {item.macroSensitive && (
-                  <span className="text-terminal-yellow ml-1">⚠️</span>
+                  <span className="ml-1 inline-flex"><Warn /></span>
                 )}
               </span>
             </div>

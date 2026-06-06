@@ -109,6 +109,25 @@ async def test_run_agent_broadcasts(mem_db, monkeypatch):
     assert "market" in broadcasts[0]
 
 
+async def test_failing_detector_does_not_abort_loop(mem_db):
+    """A detector that raises must not prevent subsequent detectors from running."""
+    get_db, Session = mem_db
+    bad_detector = AsyncMock()
+    bad_detector.run = AsyncMock(side_effect=RuntimeError("API down"))
+    good_detector = AsyncMock()
+    good_detector.run = AsyncMock(return_value=[_raw_signal("BUY")])
+
+    with patch("backend.agent.runner.get_db", get_db), \
+         patch("backend.agent.runner.DETECTORS", [bad_detector, good_detector]), \
+         patch("backend.agent.runner.explain_signal", new=AsyncMock(return_value="ok")), \
+         patch("backend.agent.runner._refresh_panel_cache", new=AsyncMock()):
+        await run_agent()
+
+    with Session() as db:
+        rows = db.query(Signal).all()
+    assert len(rows) == 1, "good detector's signal should be persisted despite bad detector failing"
+
+
 async def test_upsert_updates_fields(mem_db):
     get_db, Session = mem_db
     mock_detector = AsyncMock()

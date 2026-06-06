@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import type { SubscribeStep } from '@/hooks/useSubscription';
 
 interface Props {
@@ -31,6 +32,11 @@ export default function SubscribeModal({
   onSubscribe,
   onReset,
 }: Props) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (isOpen) dialogRef.current?.focus();
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const isActive = step === 'approving' || step === 'subscribing';
@@ -46,11 +52,12 @@ export default function SubscribeModal({
       onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="subscribe-modal-title"
         tabIndex={-1}
-        className="bg-terminal-panel border border-terminal-border w-[380px] font-mono text-xs"
+        className="bg-terminal-panel border border-terminal-border w-[380px] font-mono text-xs outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

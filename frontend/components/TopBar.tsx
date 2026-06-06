@@ -1,6 +1,8 @@
 import { useRef } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import type { MarketStatus, PriceSnapshot } from "@/types";
+import { Dot, Warn } from "@/components/icons";
+import { usePriceFlash } from "@/hooks/usePriceFlash";
 
 function fearGreedDisplay(v: number): { className: string; style?: CSSProperties } {
   if (v <= 24) return { className: "text-terminal-red" };
@@ -10,10 +12,10 @@ function fearGreedDisplay(v: number): { className: string; style?: CSSProperties
   return { className: "text-terminal-green font-bold" };
 }
 
-function macroRegimeDisplay(regime: string): { label: string; className: string } {
-  if (regime === "risk-off") return { label: "RISK-OFF ⚠", className: "text-terminal-red" };
-  if (regime === "risk-on")  return { label: "RISK-ON",    className: "text-terminal-green" };
-  return                            { label: "NEUTRAL",    className: "text-terminal-yellow" };
+function macroRegimeDisplay(regime: string): { label: string; className: string; warn: boolean } {
+  if (regime === "risk-off") return { label: "RISK-OFF", className: "text-terminal-red", warn: true };
+  if (regime === "risk-on")  return { label: "RISK-ON",  className: "text-terminal-green", warn: false };
+  return                            { label: "NEUTRAL",  className: "text-terminal-yellow", warn: false };
 }
 
 function Sparkline({ data, color }: { data: number[]; color: string }) {
@@ -48,6 +50,15 @@ interface Props {
 export default function TopBar({ market, isLoading, isError, isConnected, lastUpdated, walletBar, priceHistory, riskEnvironment, isDemoData }: Props) {
   const prevFearGreed = useRef<number | null>(null);
 
+  const btcFlash = usePriceFlash(market?.btcPrice);
+  const btcChangeFlash = usePriceFlash(market?.btcChange);
+  const ethFlash = usePriceFlash(market?.ethPrice);
+  const ethChangeFlash = usePriceFlash(market?.ethChange);
+  const mcapFlash = usePriceFlash(market?.mcap);
+  const mcapChangeFlash = usePriceFlash(market?.mcapChange);
+  const volFlash = usePriceFlash(market?.vol);
+  const volChangeFlash = usePriceFlash(market?.volChange);
+
   const statusLabel = isError
     ? <span className="text-terminal-red">● RECONNECTING · POLLING FALLBACK</span>
     : isConnected && lastUpdated
@@ -62,6 +73,7 @@ export default function TopBar({ market, isLoading, isError, isConnected, lastUp
     ? market.fearGreed > prevFearGreed.current ? "↑" : "↓"
     : null;
   if (market) prevFearGreed.current = market.fearGreed;
+  const fearGreedStyle = market ? fearGreedDisplay(market.fearGreed) : null;
 
   const btcData = priceHistory.map(p => p.btcPrice);
   const ethData = priceHistory.map(p => p.ethPrice);
@@ -72,12 +84,16 @@ export default function TopBar({ market, isLoading, isError, isConnected, lastUp
 
   return (
     <div
-      className="border-b border-terminal-border bg-terminal-panel px-3 flex flex-col justify-center"
+      className="border-b border-terminal-border bg-terminal-panel px-3 flex items-center whitespace-nowrap overflow-hidden"
       style={{ gridColumn: "1 / -1" }}
     >
-      <div className="flex items-center gap-6 text-xs">
-        <span className="font-bold text-terminal-green tracking-widest">
-          SOSOLENS <span className="animate-pulse">●</span>LIVE
+      <div className="flex items-center gap-2.5 text-xs whitespace-nowrap overflow-hidden w-full">
+        <span
+          className="font-bold text-terminal-green shrink-0"
+          style={{ letterSpacing: "0.22em", textShadow: "0 0 7px rgba(95, 206, 150, 0.55)" }}
+        >
+          SOSOLENS <span className="animate-pulse">●</span>
+          <span style={{ fontSize: "0.82em", letterSpacing: "0.12em" }}>LIVE</span>
         </span>
         {isDemoData && (
           <span className="text-terminal-yellow text-xs border border-terminal-yellow px-1 tracking-wider">
@@ -86,10 +102,10 @@ export default function TopBar({ market, isLoading, isError, isConnected, lastUp
         )}
         <span className="text-terminal-muted">│</span>
         <span>
-          MARKET:{" "}
+          MARKET{" "}
           {market ? (
-            <span className={market.sentimentPositive ? "text-terminal-green" : "text-terminal-red"}>
-              {market.sentimentPositive ? "🟢" : "🔴"} {market.sentiment}
+            <span className={`inline-flex items-center gap-1 ${market.sentimentPositive ? "text-terminal-green" : "text-terminal-red"}`}>
+              <Dot variant={market.sentimentPositive ? "up" : "down"} /> {market.sentiment}
             </span>
           ) : (
             <span className="text-terminal-muted">{dash}</span>
@@ -97,43 +113,52 @@ export default function TopBar({ market, isLoading, isError, isConnected, lastUp
         </span>
         <span className="text-terminal-muted">│</span>
         <span>
-          MACRO:{" "}
-          <span className={macroRegimeDisplay(riskEnvironment).className}>
-            {macroRegimeDisplay(riskEnvironment).label}
-          </span>
+          MACRO{" "}
+          {(() => {
+            const m = macroRegimeDisplay(riskEnvironment);
+            return (
+              <span className={`inline-flex items-center gap-1 ${m.className}`}>
+                {m.label}{m.warn && <Warn />}
+              </span>
+            );
+          })()}
         </span>
         <span className="text-terminal-muted">│</span>
         <span className="flex items-center gap-1">
-          BTC <span className="text-terminal-text">{market?.btcPrice ?? dash}</span>{" "}
-          <span className={market && parseFloat(market.btcChange) >= 0 ? "text-terminal-green" : "text-terminal-red"}>
+          BTC <span className={`text-terminal-text px-0.5 ${btcFlash}`}>{market?.btcPrice ?? dash}</span>{" "}
+          <span className={`px-0.5 ${btcChangeFlash} ${market && parseFloat(market.btcChange) >= 0 ? "text-terminal-green" : "text-terminal-red"}`}>
             {market?.btcChange ?? ""}
           </span>
           <Sparkline data={btcData} color={btcSparkColor} />
         </span>
         <span className="text-terminal-muted">│</span>
         <span className="flex items-center gap-1">
-          ETH <span className="text-terminal-text">{market?.ethPrice ?? dash}</span>{" "}
-          <span className={market && parseFloat(market.ethChange) >= 0 ? "text-terminal-green" : "text-terminal-red"}>
+          ETH <span className={`text-terminal-text px-0.5 ${ethFlash}`}>{market?.ethPrice ?? dash}</span>{" "}
+          <span className={`px-0.5 ${ethChangeFlash} ${market && parseFloat(market.ethChange) >= 0 ? "text-terminal-green" : "text-terminal-red"}`}>
             {market?.ethChange ?? ""}
           </span>
           <Sparkline data={ethData} color={ethSparkColor} />
         </span>
         <span className="text-terminal-muted">│</span>
         <span>
-          MCAP <span className="text-terminal-text">{market?.mcap ?? dash}</span>{" "}
-          <span className="text-terminal-green">{market?.mcapChange ?? ""}</span>
+          MCAP <span className={`text-terminal-text px-0.5 ${mcapFlash}`}>{market?.mcap ?? dash}</span>{" "}
+          <span className={`px-0.5 ${mcapChangeFlash} ${market && parseFloat(market.mcapChange) >= 0 ? "text-terminal-green" : "text-terminal-red"}`}>
+            {market?.mcapChange ?? ""}
+          </span>
         </span>
         <span className="text-terminal-muted">│</span>
         <span>
-          VOL <span className="text-terminal-text">{market?.vol ?? dash}</span>{" "}
-          <span className="text-terminal-green">{market?.volChange ?? ""}</span>
+          VOL <span className={`text-terminal-text px-0.5 ${volFlash}`}>{market?.vol ?? dash}</span>{" "}
+          <span className={`px-0.5 ${volChangeFlash} ${market && parseFloat(market.volChange) >= 0 ? "text-terminal-green" : "text-terminal-red"}`}>
+            {market?.volChange ?? ""}
+          </span>
         </span>
         <span className="text-terminal-muted">│</span>
         <span className="flex items-center gap-1">
-          FEAR/GREED:{" "}
+          F/G{" "}
           {market ? (
             <>
-              <span className={fearGreedDisplay(market.fearGreed).className} style={fearGreedDisplay(market.fearGreed).style}>
+              <span className={fearGreedStyle!.className} style={fearGreedStyle!.style}>
                 {market.fearGreed}
               </span>
               {fearGreedTrend && (
@@ -147,7 +172,7 @@ export default function TopBar({ market, isLoading, isError, isConnected, lastUp
             <span className="text-terminal-muted">{dash}</span>
           )}
         </span>
-        <span className="ml-auto flex items-center gap-3 text-[10px]">
+        <span className="ml-auto flex items-center gap-3 text-[10px] shrink-0 whitespace-nowrap">
           {statusLabel}
           {walletBar && (
             <>

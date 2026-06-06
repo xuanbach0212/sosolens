@@ -118,3 +118,10 @@ export interface EtfFlowSnapshot {
   ethFlow: number;
   totalFlow: number;
 }
+
+export interface MacroEvent {
+  date: string;
+  days_until: number;
+  events: string[];
+  high_impact: boolean;
+}
