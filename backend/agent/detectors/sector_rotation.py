@@ -6,20 +6,6 @@ from backend.services.sector import fetch_sector_flows
 
 logger = logging.getLogger(__name__)
 
-SECTOR_TOKENS: dict[str, list[str]] = {
-    "AI":      ["FET", "RENDER", "TAO"],
-    "DeFi":    ["UNI", "AAVE", "CRV"],
-    "RWA":     ["ONDO", "MKR", "POLYX"],
-    "Layer 1": ["ETH", "SOL", "AVAX"],
-    "Layer 2": ["OP", "ARB", "MATIC"],
-    "Gaming":  ["GALA", "IMX", "AXS"],
-    "NFT":     ["BLUR", "APE", "SAND"],
-    "Meme":    ["DOGE", "SHIB", "PEPE"],
-}
-
-# Primary token per sector (used for sodexPair)
-SECTOR_TOKEN = {name: tokens[0] for name, tokens in SECTOR_TOKENS.items()}
-
 
 def _sector_signal_type(change: float) -> tuple[str, int, str]:
     """Return (signal_type, confidence, risk) based on 7d sector flow change %."""
@@ -53,8 +39,9 @@ class SectorRotationDetector:
             change = sector.get("change", 0.0)
             sig_type, confidence, risk = _sector_signal_type(change)
             change_str = f"+{change:.1f}%" if change >= 0 else f"{change:.1f}%"
-            tokens = SECTOR_TOKENS.get(name, [name.upper()[:4]])
-            token = tokens[0]
+
+            tokens = sector.get("tokens") or []
+            primary = tokens[0] if tokens else name.upper()[:4]
 
             signals.append({
                 "id": f"sector-{name.lower().replace(' ', '-')}",
@@ -70,12 +57,12 @@ class SectorRotationDetector:
                     {"name": "Sector", "value": name, "signal": "🟡"},
                 ],
                 "topTokens": [
-                    token_from_cache(t, change >= 0, change_str if t == token else None)
+                    token_from_cache(t, change >= 0, change_str if t == primary else None)
                     for t in tokens
-                ],
+                ] if tokens else [],
                 "pastSignals": [],
                 "accuracy": 0,
-                "sodexPair": f"BUY {token}/USDC" if sig_type == "BUY" else (f"SELL {token}/USDC" if sig_type == "AVOID" else f"WATCH {token}/USDC"),
+                "sodexPair": f"BUY {primary}/USDC" if sig_type == "BUY" else (f"SELL {primary}/USDC" if sig_type == "AVOID" else f"WATCH {primary}/USDC"),
                 "sodexSlippage": "1%",
                 "sodexEstOutput": "—",
                 "confidence": confidence,

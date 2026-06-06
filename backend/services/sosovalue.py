@@ -76,6 +76,9 @@ class SoSoValueClient:
     async def get_index_snapshot(self, ticker: str) -> Any:
         return await self._get(f"/indices/{ticker}/market-snapshot")
 
+    async def get_index_constituents(self, ticker: str) -> Any:
+        return await self._get(f"/indices/{ticker}/constituents")
+
     async def get_macro_events(self) -> Any:
         return await self._get("/macro/events")
 
