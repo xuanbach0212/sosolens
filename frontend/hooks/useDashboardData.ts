@@ -99,7 +99,7 @@ export function useDashboardData(wallet?: string): DashboardData {
           sigRes.json(), mktRes.json(),
           safeJson(secRes, { sectorFlows: [] }),
           safeJson(etfRes, { etfFlows: [] }),
-          safeJson(macRes, { macroStatus: [], riskEnvironment: 'neutral' }),
+          safeJson(macRes, { macroStatus: [] as MacroItem[], riskEnvironment: 'neutral', upcomingEvents: [] as MacroEvent[] }),
           safeJson(btcRes, { btcTreasuries: [] }),
           safeJson(vcRes, { vcActivity: [] }),
           safeJson(newsRes, { aiBriefing: [], newsHeadlines: [] }),

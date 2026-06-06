@@ -1,17 +1,18 @@
 'use client';
 
-import type { MarketStatus, Signal } from "@/types";
+import type { MarketStatus, Signal, SectorFlow } from "@/types";
 import { usePriceFlash } from "@/hooks/usePriceFlash";
 
 interface TapeItemData {
   symbol: string;
-  price: string;
+  price?: string;        // optional — sectors have movement but no price
   pctChange: number;
 }
 
 interface Props {
   market: MarketStatus | null;
   signals: Signal[];
+  sectorFlows: SectorFlow[];
 }
 
 // Backend can return change strings using a unicode minus ("−") instead of ASCII "-";
@@ -21,7 +22,7 @@ function parsePct(s: string): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function buildTape(market: MarketStatus | null, signals: Signal[]): TapeItemData[] {
+function buildTape(market: MarketStatus | null, signals: Signal[], sectorFlows: SectorFlow[]): TapeItemData[] {
   const out: TapeItemData[] = [];
   const seen = new Set<string>();
 
@@ -34,6 +35,7 @@ function buildTape(market: MarketStatus | null, signals: Signal[]): TapeItemData
     seen.add("ETH");
   }
 
+  // Tokens from active signals — only those with real (non-placeholder) prices.
   for (const sig of signals) {
     for (const t of sig.topTokens) {
       if (seen.has(t.symbol)) continue;
@@ -41,6 +43,16 @@ function buildTape(market: MarketStatus | null, signals: Signal[]): TapeItemData
       out.push({ symbol: t.symbol, price: t.price, pctChange: parsePct(t.change) });
       seen.add(t.symbol);
     }
+  }
+
+  // Sector flows — no price, but real movement data. Pull the strongest movers
+  // by absolute change so the tape always crawls a varied mix.
+  const sectors = [...sectorFlows].sort((a, b) => Math.abs(b.change) - Math.abs(a.change));
+  for (const s of sectors) {
+    const sym = s.name.toUpperCase();
+    if (seen.has(sym)) continue;
+    out.push({ symbol: sym, pctChange: s.change });
+    seen.add(sym);
   }
 
   return out;
@@ -51,7 +63,9 @@ function TapeItem({ data }: { data: TapeItemData }) {
   return (
     <span className="tapeitem">
       <span className="tapesym">{data.symbol}</span>
-      <span className={`text-terminal-muted px-0.5 ${flash}`}>{data.price}</span>
+      {data.price && (
+        <span className={`text-terminal-muted px-0.5 ${flash}`}>{data.price}</span>
+      )}
       <span className={data.pctChange >= 0 ? "text-terminal-green" : "text-terminal-red"}>
         {data.pctChange >= 0 ? "▲" : "▼"} {Math.abs(data.pctChange).toFixed(1)}%
       </span>
@@ -59,8 +73,8 @@ function TapeItem({ data }: { data: TapeItemData }) {
   );
 }
 
-export default function TickerTape({ market, signals }: Props) {
-  const items = buildTape(market, signals);
+export default function TickerTape({ market, signals, sectorFlows }: Props) {
+  const items = buildTape(market, signals, sectorFlows);
 
   // Render the row twice so the crawl translateX(-50%) loops seamlessly.
   // Flash only on the first copy — the second is a visual continuation.
@@ -71,7 +85,7 @@ export default function TickerTape({ market, signals }: Props) {
       ) : (
         <span key={`${suffix}-${x.symbol}-${i}`} className="tapeitem">
           <span className="tapesym">{x.symbol}</span>
-          <span className="text-terminal-muted">{x.price}</span>
+          {x.price && <span className="text-terminal-muted">{x.price}</span>}
           <span className={x.pctChange >= 0 ? "text-terminal-green" : "text-terminal-red"}>
             {x.pctChange >= 0 ? "▲" : "▼"} {Math.abs(x.pctChange).toFixed(1)}%
           </span>
