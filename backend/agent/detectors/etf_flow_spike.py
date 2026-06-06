@@ -59,7 +59,7 @@ class ETFFlowSpikeDetector:
             "topTokens": [btc_token, eth_token],
             "pastSignals": [],
             "accuracy": 0,
-            "sodexPair": "BUY BTC/USDC" if sig_type == "BUY" else "—",
+            "sodexPair": "BUY BTC/USDC" if sig_type == "BUY" else ("SELL BTC/USDC" if sig_type == "AVOID" else "WATCH BTC/USDC"),
             "sodexSlippage": "1%",
             "sodexEstOutput": "—",
         }]

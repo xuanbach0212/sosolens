@@ -70,7 +70,7 @@ class SectorRotationDetector:
                 ],
                 "pastSignals": [],
                 "accuracy": 0,
-                "sodexPair": f"BUY {token}/USDC" if sig_type == "BUY" else "—",
+                "sodexPair": f"BUY {token}/USDC" if sig_type == "BUY" else (f"SELL {token}/USDC" if sig_type == "AVOID" else f"WATCH {token}/USDC"),
                 "sodexSlippage": "1%",
                 "sodexEstOutput": "—",
                 "confidence": confidence,
