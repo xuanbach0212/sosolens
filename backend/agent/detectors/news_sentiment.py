@@ -127,7 +127,7 @@ class NewsSentimentDetector:
         return [{
             "id": "news-sentiment",
             "type": sig_type,
-            "sector": "Crypto News Sentiment",
+            "sector": "Sentiment",
             "timeAgo": "0h",
             "dataSources": data_sources,
             "topTokens": top_tokens,

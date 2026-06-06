@@ -68,7 +68,7 @@ class BtcAccumulationDetector:
         return [{
             "id": "btc-accumulation",
             "type": sig_type,
-            "sector": "BTC Treasury Accumulation",
+            "sector": "BTC Treasury",
             "timeAgo": "0h",
             "dataSources": [
                 {"name": "Net Weekly Δ", "value": _fmt_net(net_weekly), "signal": net_signal, "arrow": net_arrow},

@@ -6,11 +6,6 @@ from backend.services.sector import fetch_sector_flows
 
 logger = logging.getLogger(__name__)
 
-ROTATION_THRESHOLD = 2.0   # leader must be above this % (24h price change)
-WATCH_THRESHOLD = 1.0
-SPREAD_THRESHOLD = 5.0     # leader minus laggard spread for BUY
-
-# Map sector display names → representative token for SoDEX trade link
 SECTOR_TOKEN = {
     "AI":      "FET",
     "DeFi":    "UNI",
@@ -21,7 +16,19 @@ SECTOR_TOKEN = {
     "NFT":     "BLUR",
     "Meme":    "DOGE",
 }
-WATCH_SPREAD = 3.0
+
+
+def _sector_signal_type(change: float) -> tuple[str, int, str]:
+    """Return (signal_type, confidence, risk) based on 7d sector flow change %."""
+    abs_c = abs(change)
+    if change >= 5.0:
+        return "BUY", min(90, 65 + int(abs_c * 2)), "LOW"
+    elif change >= 0.0:
+        return "WATCH", 55 + min(10, int(abs_c * 2)), "MEDIUM"
+    elif change >= -5.0:
+        return "WATCH", 50 + min(10, int(abs_c)), "MEDIUM"
+    else:
+        return "AVOID", min(90, 60 + int(abs_c)), "HIGH"
 
 
 class SectorRotationDetector:
@@ -34,47 +41,41 @@ class SectorRotationDetector:
             logger.warning("[sector_rotation] fetch failed: %s", exc)
             return []
 
-        if len(sectors) < 2:
-            logger.warning("[sector_rotation] too few sectors: %d", len(sectors))
+        if not sectors:
             return []
 
-        leader = sectors[0]
-        lagger = sectors[-1]
-        spread = leader["change"] - lagger["change"]
+        signals = []
+        for sector in sectors:
+            name = sector["name"]
+            change = sector.get("change", 0.0)
+            sig_type, confidence, risk = _sector_signal_type(change)
+            change_str = f"+{change:.1f}%" if change >= 0 else f"{change:.1f}%"
+            token = SECTOR_TOKEN.get(name, name.upper()[:4])
 
-        if leader["change"] >= ROTATION_THRESHOLD and spread >= SPREAD_THRESHOLD:
-            sig_type = "BUY"
-        elif leader["change"] >= WATCH_THRESHOLD and spread >= WATCH_SPREAD:
-            sig_type = "WATCH"
-        else:
-            logger.info("[sector_rotation] spread=%.1fpt leader=%.1f%% — no signal", spread, leader["change"])
-            return []
+            signals.append({
+                "id": f"sector-{name.lower().replace(' ', '-')}",
+                "type": sig_type,
+                "sector": name,
+                "dataSources": [
+                    {
+                        "name": "7D Price Change",
+                        "value": change_str,
+                        "signal": "🟢" if change >= 0 else "🔴",
+                        "arrow": "↑" if change >= 0 else "↓",
+                    },
+                    {"name": "Sector", "value": name, "signal": "🟡"},
+                ],
+                "topTokens": [
+                    token_from_cache(token, change >= 0, change_str),
+                ],
+                "pastSignals": [],
+                "accuracy": 0,
+                "sodexPair": f"BUY {token}/USDC" if sig_type == "BUY" else "—",
+                "sodexSlippage": "1%",
+                "sodexEstOutput": "—",
+                "confidence": confidence,
+                "risk": risk,
+            })
 
-        flow_signal = "🟢" if sig_type == "BUY" else "🟡"
-        leader_label = f"+{leader['change']:.1f}%" if leader["change"] >= 0 else f"{leader['change']:.1f}%"
-        lagger_label = f"{lagger['change']:.1f}%"
-
-        logger.info("[sector_rotation] signal=%s leader=%s lagger=%s spread=%.1fpt",
-                    sig_type, leader["name"], lagger["name"], spread)
-
-        return [{
-            "id": "sector-rotation",
-            "type": sig_type,
-            "sector": f"{leader['name']} Sector",
-            "timeAgo": "0h",
-            "dataSources": [
-                {"name": f"{leader['name']} 24h Change", "value": leader_label, "signal": "🟢", "arrow": "↑"},
-                {"name": f"{lagger['name']} 24h Change", "value": lagger_label, "signal": "🔴", "arrow": "↓"},
-                {"name": "Rotation Spread", "value": f"{spread:.1f}pts", "signal": flow_signal},
-                {"name": "Signal Tier", "value": sig_type, "signal": flow_signal},
-            ],
-            "topTokens": [
-                token_from_cache(SECTOR_TOKEN.get(leader["name"], leader["name"].upper()), leader["change"] >= 0, leader_label),
-                token_from_cache(SECTOR_TOKEN.get(lagger["name"], lagger["name"].upper()), lagger["change"] >= 0, lagger_label),
-            ],
-            "pastSignals": [],
-            "accuracy": 0,
-            "sodexPair": f"BUY {SECTOR_TOKEN.get(leader['name'], leader['name'].upper())}/USDC" if sig_type == "BUY" else "—",
-            "sodexSlippage": "1%",
-            "sodexEstOutput": "—",
-        }]
+        logger.info("[sector_rotation] emitted %d sector signals", len(signals))
+        return signals

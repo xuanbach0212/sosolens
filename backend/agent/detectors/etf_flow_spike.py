@@ -49,7 +49,7 @@ class ETFFlowSpikeDetector:
         return [{
             "id": "etf-flow-spike",
             "type": sig_type,
-            "sector": "BTC/ETH ETF",
+            "sector": "ETF Flows",
             "timeAgo": "0h",
             "dataSources": [
                 {"name": "ETF Net Inflow (24h)", "value": _fmt(total), "signal": flow_signal, "arrow": flow_arrow},
