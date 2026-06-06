@@ -78,7 +78,14 @@ async def _refresh_macro_cache() -> None:
         nearest_high = next((e for e in events if e["high_impact"]), None)
         risk = "risk-off" if nearest_high and nearest_high["days_until"] <= 3 else ("neutral" if nearest_high else "risk-on")
 
-        cache.put("macro_status", {"indicators": indicators, "macro_status": macro_status, "upcoming_events": upcoming, "risk_environment": risk})
+        # MACRO STATUS shows real indicator levels (Fed rate, CPI, 10Y, USD) from
+        # FRED when a key is configured; the event calendar lives in UPCOMING
+        # EVENTS. Without FRED_API_KEY we fall back to the calendar-derived rows.
+        from backend.services.fred import fetch_fred_indicators
+        fred_rows = await fetch_fred_indicators()
+        panel_indicators = fred_rows if fred_rows else indicators
+
+        cache.put("macro_status", {"indicators": panel_indicators, "macro_status": macro_status, "upcoming_events": upcoming, "risk_environment": risk})
         logger.info("[agent] cache: macro_status updated (30-min)")
     except Exception as exc:
         logger.warning("[agent] cache: macro_refresh failed: %s", exc)
