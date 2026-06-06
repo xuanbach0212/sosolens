@@ -30,7 +30,11 @@ export default function BottomBar({ briefing, news, lastUpdated }: Props) {
             <div className="text-[10px] text-terminal-muted italic">AI briefing generating...</div>
           ) : (
             briefing.map((point, i) => (
-              <div key={i} className="text-[10px] text-terminal-text">
+              <div
+                key={i}
+                className="text-[10px] text-terminal-text whitespace-nowrap overflow-hidden text-ellipsis"
+                title={point}
+              >
                 <span className="text-terminal-green mr-1">{i + 1}.</span>
                 {point}
               </div>
