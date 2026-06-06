@@ -218,7 +218,7 @@ async def test_buy_signal_sets_sodex_pair(detector):
     assert signals[0]["sodexPair"] == "BUY BTC/USDC"
 
 
-async def test_avoid_signal_clears_sodex_pair(detector):
+async def test_avoid_signal_sets_sell_sodex_pair(detector):
     h = _headlines(
         ("Bitcoin crash hack exploit causes fear and decline", False),
         ("Regulation ban and outflow as markets fall and drop", False),
@@ -227,4 +227,4 @@ async def test_avoid_signal_clears_sodex_pair(detector):
     with gc, news:
         signals = await detector.run()
     assert signals[0]["type"] == "AVOID"
-    assert signals[0]["sodexPair"] == "—"
+    assert signals[0]["sodexPair"] == "SELL BTC/USDC"

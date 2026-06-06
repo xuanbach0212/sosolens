@@ -153,6 +153,34 @@ async def _refresh_panel_cache() -> None:
             logger.warning("[agent] cache: news/vc_activity failed: %s", exc)
 
 
+async def _refresh_ai_briefing() -> None:
+    """Replace the raw-headline briefing with an LLM synthesis of current data.
+
+    Runs after the panel cache is populated. Leaves the existing headline-based
+    briefing in place if no AI provider is configured/available."""
+    from backend.agent.explainer import generate_briefing
+    news_cache = cache.get("news")
+    if not isinstance(news_cache, dict):
+        return
+    headlines = news_cache.get("headlines", [])
+    context = {
+        "market": cache.get("market_status"),
+        "sectorFlows": cache.get("sector_flows"),
+        "etfFlows": cache.get("etf_flows"),
+        "btcTreasuries": cache.get("btc_treasuries"),
+        "headlines": [h.get("text") for h in headlines[:6] if isinstance(h, dict)],
+    }
+    try:
+        bullets = await generate_briefing(context)
+    except Exception as exc:
+        logger.warning("[agent] AI briefing generation failed: %s", exc)
+        return
+    if bullets:
+        news_cache["briefing"] = bullets
+        cache.put("news", news_cache)
+        logger.info("[agent] cache: AI briefing generated (%d points)", len(bullets))
+
+
 _MAX_SIGNAL_AGE_HOURS = 25
 
 
@@ -336,7 +364,9 @@ async def run_agent() -> None:
         for raw in raw_signals:
             scores = score_signal(raw)
             explanation = await explain_signal(raw)
-            payload = {**raw, **scores, "explanation": explanation}
+            # Detector-supplied confidence/risk (e.g. per-sector rotation) take
+            # precedence; scorer only fills gaps for detectors that omit them.
+            payload = {**scores, **raw, "explanation": explanation}
 
             with get_db() as db:
                 existing = db.query(Signal).filter_by(signal_id=raw["id"]).first()
@@ -362,6 +392,7 @@ async def run_agent() -> None:
             generated += 1
 
     await _refresh_panel_cache()
+    await _refresh_ai_briefing()
     if active_signals:
         try:
             from backend.services.sosovalue import get_client

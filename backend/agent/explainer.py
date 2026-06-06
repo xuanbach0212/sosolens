@@ -30,7 +30,7 @@ def _build_provider_list() -> list[str]:
     return result or ["anthropic"]
 
 
-async def _try_anthropic(summary: dict) -> str | None:
+async def _try_anthropic(summary: dict, system: str = _SYSTEM, max_tokens: int = 150) -> str | None:
     global _anthropic_client
     api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
     if not api_key:
@@ -41,8 +41,8 @@ async def _try_anthropic(summary: dict) -> str | None:
             _anthropic_client = AsyncAnthropic(api_key=api_key)
         response = await _anthropic_client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=150,
-            system=_SYSTEM,
+            max_tokens=max_tokens,
+            system=system,
             messages=[{"role": "user", "content": json.dumps(summary)}],
         )
         return response.content[0].text.strip()
@@ -51,7 +51,7 @@ async def _try_anthropic(summary: dict) -> str | None:
         return None
 
 
-async def _try_openai(summary: dict) -> str | None:
+async def _try_openai(summary: dict, system: str = _SYSTEM, max_tokens: int = 150) -> str | None:
     global _openai_client
     api_key = os.environ.get("OPENAI_API_KEY", "").strip()
     if not api_key:
@@ -62,9 +62,9 @@ async def _try_openai(summary: dict) -> str | None:
             _openai_client = AsyncOpenAI(api_key=api_key)
         response = await _openai_client.chat.completions.create(
             model="gpt-4o-mini",
-            max_tokens=150,
+            max_tokens=max_tokens,
             messages=[
-                {"role": "system", "content": _SYSTEM},
+                {"role": "system", "content": system},
                 {"role": "user", "content": json.dumps(summary)},
             ],
         )
@@ -78,7 +78,7 @@ async def _try_openai(summary: dict) -> str | None:
         return None
 
 
-async def _try_openrouter(summary: dict) -> str | None:
+async def _try_openrouter(summary: dict, system: str = _SYSTEM, max_tokens: int = 150) -> str | None:
     global _openrouter_client
     api_key = os.environ.get("OPENROUTER_API_KEY", "").strip()
     if not api_key:
@@ -89,7 +89,7 @@ async def _try_openrouter(summary: dict) -> str | None:
             model = os.environ.get("OPENROUTER_MODEL", "z-ai/glm-4.5-air:free")
             _openrouter_client = (OpenRouter(api_key=api_key), model)
         client, model = _openrouter_client
-        prompt = f"{_SYSTEM}\n\nSignal data:\n{json.dumps(summary)}\n\nWrite the explanation now:"
+        prompt = f"{system}\n\nData:\n{json.dumps(summary)}\n\nWrite the response now:"
         response = await client.chat.send_async(
             model=model,
             messages=[{"role": "user", "content": prompt}],
@@ -104,7 +104,7 @@ async def _try_openrouter(summary: dict) -> str | None:
         return None
 
 
-async def _try_gemini(summary: dict) -> str | None:
+async def _try_gemini(summary: dict, system: str = _SYSTEM, max_tokens: int = 150) -> str | None:
     global _gemini_client
     api_key = os.environ.get("GEMINI_API_KEY", "").strip()
     if not api_key:
@@ -113,7 +113,7 @@ async def _try_gemini(summary: dict) -> str | None:
         from google import genai
         if _gemini_client is None:
             _gemini_client = genai.Client(api_key=api_key)
-        prompt = f"{_SYSTEM}\n\n{json.dumps(summary)}"
+        prompt = f"{system}\n\n{json.dumps(summary)}"
         response = await _gemini_client.aio.models.generate_content(
             model="gemini-2.0-flash",
             contents=prompt,
@@ -163,3 +163,28 @@ def _fallback(signal_data: dict) -> str:
         top = sources[0]
         return f"{sig_type} signal in {sector}: {top.get('name', '')} at {top.get('value', '')}."
     return f"{sig_type} signal detected in {sector}."
+
+
+_BRIEFING_SYSTEM = (
+    "You are a crypto trading-desk analyst writing the morning briefing. "
+    "Given the current market data, write exactly 3 short, specific, actionable "
+    "bullet points — one sentence each. Reference concrete numbers from the data "
+    "(prices, flows, sector moves). No numbering, no bullet characters, no markdown, "
+    "no preamble. Output only the 3 lines, separated by newlines."
+)
+
+
+async def generate_briefing(context: dict) -> list[str]:
+    """Synthesize a 3-point AI briefing from current market context.
+
+    Returns [] if no provider is available so the caller can fall back to
+    raw headlines."""
+    for provider in _build_provider_list():
+        result = await _PROVIDER_FNS[provider](context, _BRIEFING_SYSTEM, 300)
+        if not result:
+            continue
+        lines = [ln.strip(" -•\t0123456789.") for ln in result.splitlines()]
+        lines = [ln for ln in lines if ln]
+        if lines:
+            return lines[:3]
+    return []

@@ -174,20 +174,20 @@ async def test_buy_sets_sodex_pair(detector):
     assert signals[0]["sodexPair"] == "BUY BTC/USDC"
 
 
-async def test_avoid_clears_sodex_pair(detector):
+async def test_avoid_sets_sell_sodex_pair(detector):
     gc, fetch = _patch(_AVOID)
     with gc, fetch:
         signals = await detector.run()
     assert signals[0]["type"] == "AVOID"
-    assert signals[0]["sodexPair"] == "—"
+    assert signals[0]["sodexPair"] == "SELL BTC/USDC"
 
 
-async def test_watch_clears_sodex_pair(detector):
+async def test_watch_sets_watch_sodex_pair(detector):
     gc, fetch = _patch(_WATCH_POS)
     with gc, fetch:
         signals = await detector.run()
     assert signals[0]["type"] == "WATCH"
-    assert signals[0]["sodexPair"] == "—"
+    assert signals[0]["sodexPair"] == "WATCH BTC/USDC"
 
 
 # --- dataSources signals ---

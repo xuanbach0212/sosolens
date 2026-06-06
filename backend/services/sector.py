@@ -14,29 +14,51 @@ SECTOR_MAP = [
     ("Meme",    "ssiMeme"),
 ]
 
-# CoinGecko slug → exchange ticker for slugs that aren't guessable
+# SoSoValue constituent slug → exchange ticker, for slugs that aren't a clean
+# uppercase of the leading word. Covers the current top constituents of every
+# sector index; unknown slugs fall back to _slug_to_ticker() below.
 _SLUG_TO_TICKER: dict[str, str] = {
-    "fetch-ai":           "FET",
-    "worldcoin":          "WLD",
+    # AI
     "bittensor":          "TAO",
+    "worldcoin":          "WLD",
+    "render":             "RENDER",
+    "fetch-ai":           "FET",
     "virtuals-protocol":  "VIRTUAL",
     "venice-token":       "VVV",
+    # DeFi
+    "hyperliquid":        "HYPE",
+    "chainlink":          "LINK",
     "uniswap":            "UNI",
     "curve-dao-token":    "CRV",
     "maker":              "MKR",
     "aave":               "AAVE",
-    "optimism":           "OP",
-    "polygon":            "MATIC",
-    "arbitrum":           "ARB",
-    "avalanche-2":        "AVAX",
-    "solana":             "SOL",
+    # RWA
+    "ondo-finance":       "ONDO",
+    "pendle":             "PENDLE",
+    # Layer 1
     "ethereum":           "ETH",
+    "binance-coin":       "BNB",
+    "solana":             "SOL",
+    "avalanche-2":        "AVAX",
     "bitcoin":            "BTC",
+    # Layer 2
+    "mantle":             "MNT",
+    "polygon-ex-matic":   "POL",
+    "polygon":            "POL",
+    "arbitrum":           "ARB",
+    "optimism":           "OP",
+    # Gaming
     "axie-infinity":      "AXS",
-    "illuvium":           "ILV",
     "the-sandbox":        "SAND",
+    "decentraland":       "MANA",
+    "illuvium":           "ILV",
+    # NFT
+    "pudgy-penguins":     "PENGU",
+    "apenft":             "NFT",
     "apecoin":            "APE",
+    # Meme
     "dogecoin":           "DOGE",
+    "memecore":           "M",
     "shiba-inu":          "SHIB",
 }
 
@@ -58,7 +80,11 @@ async def fetch_sector_flows(client: SoSoValueClient) -> list[dict]:
         try:
             raw = await client.get_index_snapshot(ticker)
             data = raw.get("data") or {}
-            change_pct = float(data.get("change_pct_24h") or 0) * 100
+            # roi_7d matches the "SECTOR FLOWS · 7D" panel label; fall back to
+            # 24h change only if 7d ROI is missing.
+            roi_7d = data.get("roi_7d")
+            change_frac = roi_7d if roi_7d is not None else (data.get("change_pct_24h") or 0)
+            change_pct = float(change_frac) * 100
 
             # Fetch top 3 constituents by weight
             try:
