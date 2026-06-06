@@ -113,7 +113,7 @@ export default function SignalFeed({ signals, selectedId, onSelect, stats, isLoa
       </div>
 
       <div className="px-3 py-2 border-t border-terminal-border">
-        <div className="text-[9px] text-terminal-muted tracking-widest mb-1">OUTCOME TRAIL (48H)</div>
+        <div className="text-[9px] text-terminal-muted tracking-widest mb-1">OUTCOME TRAIL · 48H</div>
         {signalOutcomes.length === 0 ? (
           <div className="text-[9px] text-terminal-muted italic">no outcomes yet</div>
         ) : (

@@ -8,10 +8,10 @@ interface Props {
 }
 
 function formatTimestamp(d: Date): string {
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const h = String(d.getUTCHours()).padStart(2, '0');
   const m = String(d.getUTCMinutes()).padStart(2, '0');
-  return `${months[d.getUTCMonth()]} ${d.getUTCDate()} · ${h}:${m} UTC`;
+  const s = String(d.getUTCSeconds()).padStart(2, '0');
+  return `${h}:${m}:${s} UTC`;
 }
 
 export default function BottomBar({ briefing, news, lastUpdated }: Props) {

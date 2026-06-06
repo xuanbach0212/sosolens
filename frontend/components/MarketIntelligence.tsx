@@ -89,7 +89,7 @@ export default function MarketIntelligence({
     >
       {/* Sector Flows */}
       <div className={panelCls}>
-        <PanelHeader title="SECTOR FLOWS (7D)" />
+        <PanelHeader title="SECTOR FLOWS · 7D" />
         {sectorFlows.length === 0 && (
           <div className="text-[10px] text-terminal-muted italic">Loading...</div>
         )}
@@ -115,7 +115,7 @@ export default function MarketIntelligence({
 
       {/* ETF Flows */}
       <div className={panelCls}>
-        <PanelHeader title="ETF FLOWS (7D)" />
+        <PanelHeader title="ETF FLOWS · 7D" />
         {etfFlows.length === 0 && (
           <div className="text-[10px] text-terminal-muted italic">Loading...</div>
         )}
@@ -197,7 +197,7 @@ export default function MarketIntelligence({
       {/* Upcoming Events */}
       {upcomingEvents.length > 0 && (
         <div className={panelCls}>
-          <PanelHeader title="UPCOMING EVENTS (14D)" />
+          <PanelHeader title="UPCOMING EVENTS · 14D" />
           <div className="space-y-0.5">
             {upcomingEvents.slice(0, 6).map((e, i) => {
               const label = e.events.slice(0, 2).join(", ");
@@ -217,7 +217,7 @@ export default function MarketIntelligence({
 
       {/* VC Activity */}
       <div className={panelCls}>
-        <PanelHeader title="VC ACTIVITY (7D)" />
+        <PanelHeader title="VC ACTIVITY · 7D" />
         {vcActivity.length === 0 && (
           <div className="text-[10px] text-terminal-muted italic">Loading...</div>
         )}

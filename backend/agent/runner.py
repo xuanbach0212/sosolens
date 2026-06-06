@@ -262,8 +262,14 @@ def build_full_snapshot() -> dict:
             if delta.total_seconds() > _MAX_SIGNAL_AGE_HOURS * 3600:
                 continue  # skip stale signals
             hours = int(delta.total_seconds() // 3600)
+            minutes = int(delta.total_seconds() // 60)
             p = dict(s.payload)
-            p["timeAgo"] = f"{hours}h" if hours < 24 else f"{delta.days}d"
+            if hours == 0:
+                p["timeAgo"] = "just now" if minutes < 5 else f"{minutes}m ago"
+            elif hours < 24:
+                p["timeAgo"] = f"{hours}h ago"
+            else:
+                p["timeAgo"] = f"{delta.days}d ago"
             payloads.append(p)
         payloads, global_acc = _enrich_with_outcomes(db, payloads)
 
