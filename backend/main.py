@@ -27,7 +27,7 @@ from backend.data.hardcoded import (
 )
 from backend.agent.db import init_db, get_db
 from backend.agent.models import Signal, PriceSnapshot, SignalOutcome, EtfSnapshot
-from backend.agent.runner import run_agent, start_scheduler, build_full_snapshot, _enrich_with_outcomes, _refresh_market_cache
+from backend.agent.runner import run_agent, start_scheduler, build_full_snapshot, _enrich_with_outcomes, _refresh_market_cache, format_time_ago
 import backend.cache as cache
 
 
@@ -81,7 +81,7 @@ def get_signals(wallet: str | None = Query(default=None)) -> dict:
 
     with get_db() as db:
         from sqlalchemy import select
-        rows = db.scalars(select(Signal)).all()
+        rows = db.scalars(select(Signal).order_by(Signal.updated_at.desc())).all()
         now = datetime.now(timezone.utc)
         payloads = []
         for s in rows:
@@ -93,9 +93,8 @@ def get_signals(wallet: str | None = Query(default=None)) -> dict:
                 continue  # skip stale signals
             if delay_cutoff and updated > delay_cutoff:
                 continue  # free tier: hide signals updated within the last hour
-            hours = int(delta.total_seconds() // 3600)
             p = dict(s.payload)
-            p["timeAgo"] = f"{hours}h" if hours < 24 else f"{delta.days}d"
+            p["timeAgo"] = format_time_ago(delta)
             payloads.append(p)
         payloads, global_acc = _enrich_with_outcomes(db, payloads)
     if payloads:
