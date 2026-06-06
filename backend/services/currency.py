@@ -1,7 +1,21 @@
 import logging
+import httpx
 from backend.services.sosovalue import SoSoValueClient
 
 logger = logging.getLogger(__name__)
+
+
+async def fetch_fear_greed() -> tuple[int, str] | None:
+    """Fetch crypto fear/greed index from alternative.me — free, no auth, separate from SoSoValue rate limit."""
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            r = await client.get("https://api.alternative.me/fng/")
+            r.raise_for_status()
+            entry = (r.json().get("data") or [{}])[0]
+            return int(entry.get("value", 0)), entry.get("value_classification", "").upper()
+    except Exception as exc:
+        logger.warning("[currency] fear/greed fetch failed: %s", exc)
+        return None
 
 # Stable numeric currency IDs from GET /currencies list
 BTC_ID = "1673723677362319866"
@@ -99,6 +113,17 @@ async def fetch_market_status(client: SoSoValueClient) -> dict:
     total_vol = btc_vol + eth_vol
     sentiment, positive = _sentiment(btc_change)
 
+    # Derive aggregate 24h mcap change from individual 24h changes (supply ~constant over 24h).
+    mcap_change_str = "—"
+    if btc_mcap and eth_mcap:
+        btc_mcap_y = btc_mcap / (1 + btc_change) if (1 + btc_change) != 0 else 0
+        eth_mcap_y = eth_mcap / (1 + eth_change) if (1 + eth_change) != 0 else 0
+        total_y = btc_mcap_y + eth_mcap_y
+        if total_y > 0:
+            mcap_change_str = _fmt_change((total_mcap - total_y) / total_y)
+
+    fg = await fetch_fear_greed()
+
     base = dict(MARKET_STATUS)
     base.update({
         "btcPrice": _fmt_price(btc_price),
@@ -106,10 +131,15 @@ async def fetch_market_status(client: SoSoValueClient) -> dict:
         "ethPrice": _fmt_price(eth_price),
         "ethChange": _fmt_change(eth_change),
         "mcap": _fmt_large(total_mcap) if total_mcap else base["mcap"],
+        "mcapChange": mcap_change_str,
         "vol": _fmt_large(total_vol) if total_vol else base["vol"],
+        "volChange": "—",  # no 24h volume history available from the API
         "sentiment": sentiment,
         "sentimentPositive": positive,
         "btcPriceRaw": btc_price,
         "ethPriceRaw": eth_price,
     })
+    if fg:
+        base["fearGreed"] = fg[0]
+        base["fearGreedLabel"] = fg[1]
     return base

@@ -1,5 +1,6 @@
 import logging
 import backend.cache as cache
+from backend.agent.tokens import token_from_cache
 from backend.services.sosovalue import get_client
 from backend.services.sector import fetch_sector_flows
 
@@ -68,8 +69,8 @@ class SectorRotationDetector:
                 {"name": "Signal Tier", "value": sig_type, "signal": flow_signal},
             ],
             "topTokens": [
-                {"symbol": leader["name"], "price": "—", "change": leader_label, "positive": leader["change"] >= 0},
-                {"symbol": lagger["name"], "price": "—", "change": lagger_label, "positive": lagger["change"] >= 0},
+                token_from_cache(SECTOR_TOKEN.get(leader["name"], leader["name"].upper()), leader["change"] >= 0, leader_label),
+                token_from_cache(SECTOR_TOKEN.get(lagger["name"], lagger["name"].upper()), lagger["change"] >= 0, lagger_label),
             ],
             "pastSignals": [],
             "accuracy": 0,

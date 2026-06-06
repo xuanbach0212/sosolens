@@ -45,20 +45,31 @@ async def _push_to_cache(snapshot: dict) -> None:
 async def _refresh_macro_cache() -> None:
     """Refresh macro cache independently — runs every 30 min."""
     from backend.services.sosovalue import get_client
-    from backend.services.macro import (
-        fetch_macro_indicators,
-        get_macro_status,
-        get_upcoming_events,
-        get_risk_environment,
-    )
+    from backend.services.macro import fetch_macro_events, _INDICATOR_KEYWORDS
+    from datetime import date
     client = get_client()
     try:
-        cache.put("macro_status", {
-            "indicators": await fetch_macro_indicators(client),
-            "macro_status": await get_macro_status(client),
-            "upcoming_events": await get_upcoming_events(client, days=14),
-            "risk_environment": await get_risk_environment(client),
-        })
+        events = await fetch_macro_events(client)
+
+        indicators = []
+        for ev in events[:7]:
+            days = ev["days_until"]
+            label = "today" if days == 0 else f"in {days}d"
+            warning = ev["high_impact"] and days <= 7
+            indicators.append({"name": ", ".join(ev["events"][:2]), "value": label, "arrow": "⚠️" if warning else "", "warning": warning})
+
+        macro_status: dict = {k: None for k in _INDICATOR_KEYWORDS}
+        for ev in events:
+            joined = " ".join(ev["events"]).lower()
+            for indicator, keywords in _INDICATOR_KEYWORDS.items():
+                if macro_status[indicator] is None and any(k in joined for k in keywords):
+                    macro_status[indicator] = {"label": ", ".join(ev["events"][:2]), "days_until": ev["days_until"], "direction": "watch" if ev["days_until"] <= 7 else "neutral"}
+
+        upcoming = [e for e in events if e["days_until"] <= 14]
+        nearest_high = next((e for e in events if e["high_impact"]), None)
+        risk = "risk-off" if nearest_high and nearest_high["days_until"] <= 3 else ("neutral" if nearest_high else "risk-on")
+
+        cache.put("macro_status", {"indicators": indicators, "macro_status": macro_status, "upcoming_events": upcoming, "risk_environment": risk})
         logger.info("[agent] cache: macro_status updated (30-min)")
     except Exception as exc:
         logger.warning("[agent] cache: macro_refresh failed: %s", exc)
@@ -88,6 +99,7 @@ async def _refresh_market_cache() -> None:
             except Exception as db_exc:
                 logger.warning("[agent] price_snapshot write failed: %s", db_exc)
     await broadcast({"market": market})
+    cache.save_to_disk()
     _t = asyncio.create_task(_push_to_cache(build_full_snapshot()))
     _background_tasks.add(_t)
     _t.add_done_callback(_background_tasks.discard)
@@ -125,18 +137,20 @@ async def _refresh_panel_cache() -> None:
         except Exception as exc:
             logger.warning("[agent] cache: sector_flows failed: %s", exc)
     await _refresh_macro_cache()
-    try:
-        cache.put("btc_treasuries", await fetch_btc_treasuries(client))
-        logger.info("[agent] cache: btc_treasuries updated")
-    except Exception as exc:
-        logger.warning("[agent] cache: btc_treasuries failed: %s", exc)
-    try:
-        briefing, headlines, vc = await fetch_news_headlines(client)
-        cache.put("news", {"briefing": briefing or [], "headlines": headlines or []})
-        cache.put("vc_activity", vc if vc is not None else [])
-        logger.info("[agent] cache: news+vc_activity updated")
-    except Exception as exc:
-        logger.warning("[agent] cache: news/vc_activity failed: %s", exc)
+    if not cache.get("btc_treasuries"):
+        try:
+            cache.put("btc_treasuries", await fetch_btc_treasuries(client))
+            logger.info("[agent] cache: btc_treasuries updated")
+        except Exception as exc:
+            logger.warning("[agent] cache: btc_treasuries failed: %s", exc)
+    if not cache.get("news"):
+        try:
+            briefing, headlines, vc = await fetch_news_headlines(client)
+            cache.put("news", {"briefing": briefing or [], "headlines": headlines or []})
+            cache.put("vc_activity", vc if vc is not None else [])
+            logger.info("[agent] cache: news+vc_activity updated")
+        except Exception as exc:
+            logger.warning("[agent] cache: news/vc_activity failed: %s", exc)
 
 
 _MAX_SIGNAL_AGE_HOURS = 25
@@ -361,6 +375,7 @@ async def run_agent() -> None:
             logger.warning("[agent] etf_snapshot write failed: %s", db_exc)
     snapshot = build_full_snapshot()
     await broadcast(snapshot)
+    cache.save_to_disk()
     _t = asyncio.create_task(_push_to_cache(snapshot))
     _background_tasks.add(_t)
     _t.add_done_callback(_background_tasks.discard)

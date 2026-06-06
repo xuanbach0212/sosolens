@@ -1,4 +1,6 @@
 import logging
+import backend.cache as cache
+from backend.agent.tokens import token_from_cache
 from backend.services.sosovalue import get_client
 from backend.services.news import fetch_news_headlines
 
@@ -59,17 +61,16 @@ def _extract_tokens(headlines: list[dict]) -> list[dict]:
         if fallback not in top:
             top.append(fallback)
 
-    return [
-        {"symbol": sym, "price": "—", "change": "—", "positive": True}
-        for sym in top[:2]
-    ]
+    return [token_from_cache(sym, True) for sym in top[:2]]
 
 
 class NewsSentimentDetector:
     async def run(self) -> list[dict]:
         try:
             client = get_client()
-            _, headlines, _ = await fetch_news_headlines(client)
+            briefing, headlines, vc = await fetch_news_headlines(client)
+            cache.put("news", {"briefing": briefing or [], "headlines": headlines or []})
+            cache.put("vc_activity", vc if vc is not None else [])
         except Exception as exc:
             logger.warning("[news_sentiment] fetch failed: %s", exc)
             return []

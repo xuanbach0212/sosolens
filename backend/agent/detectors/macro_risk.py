@@ -1,4 +1,5 @@
 import logging
+from backend.agent.tokens import token_from_cache
 from backend.services.sosovalue import get_client
 from backend.services.macro import fetch_macro_events
 
@@ -62,8 +63,8 @@ class MacroRiskDetector:
             "timeAgo": "0h",
             "dataSources": data_sources,
             "topTokens": [
-                {"symbol": "BTC", "price": "—", "change": "—", "positive": sig_type != "AVOID"},
-                {"symbol": "ETH", "price": "—", "change": "—", "positive": sig_type != "AVOID"},
+                token_from_cache("BTC", sig_type != "AVOID"),
+                token_from_cache("ETH", sig_type != "AVOID"),
             ],
             "pastSignals": [],
             "accuracy": 0,

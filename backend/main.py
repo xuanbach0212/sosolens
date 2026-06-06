@@ -1,9 +1,14 @@
 import asyncio
 import json
+import os
 from contextlib import asynccontextmanager, suppress
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 load_dotenv("backend/.env")
+
+# Free tier hides signals younger than this many minutes (premium bypasses).
+# Set to 0 for local dev so signals are visible immediately.
+_FREE_TIER_DELAY_MINS = int(os.environ.get("FREE_TIER_DELAY_MINUTES", "60"))
 
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,22 +27,28 @@ from backend.data.hardcoded import (
 )
 from backend.agent.db import init_db, get_db
 from backend.agent.models import Signal, PriceSnapshot, SignalOutcome, EtfSnapshot
-from backend.agent.runner import run_agent, start_scheduler, build_full_snapshot, _enrich_with_outcomes
+from backend.agent.runner import run_agent, start_scheduler, build_full_snapshot, _enrich_with_outcomes, _refresh_market_cache
 import backend.cache as cache
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    loaded = cache.load_from_disk()
+    if loaded:
+        print(f"[cache] restored {loaded} keys from disk — panels visible immediately")
     scheduler = start_scheduler()
-    bootstrap_task = asyncio.create_task(run_agent())  # populate cache + DB immediately; scheduler handles hourly after
+    # Prioritize market cache so BTC/ETH show live within ~12s, then run full agent loop.
+    market_task = asyncio.create_task(_refresh_market_cache())
+    bootstrap_task = asyncio.create_task(run_agent())
     try:
         yield
     finally:
-        if not bootstrap_task.done():
-            bootstrap_task.cancel()
-            with suppress(asyncio.CancelledError):
-                await bootstrap_task
+        for t in (market_task, bootstrap_task):
+            if not t.done():
+                t.cancel()
+                with suppress(asyncio.CancelledError):
+                    await t
         scheduler.shutdown()
 
 
@@ -62,7 +73,11 @@ _MAX_SIGNAL_AGE_HOURS = 25
 @app.get("/api/signals")
 def get_signals(wallet: str | None = Query(default=None)) -> dict:
     premium = is_subscribed(wallet) if wallet else False
-    delay_cutoff = datetime.now(timezone.utc) - timedelta(hours=1) if not premium else None
+    delay_cutoff = (
+        datetime.now(timezone.utc) - timedelta(minutes=_FREE_TIER_DELAY_MINS)
+        if not premium and _FREE_TIER_DELAY_MINS > 0
+        else None
+    )
 
     with get_db() as db:
         from sqlalchemy import select

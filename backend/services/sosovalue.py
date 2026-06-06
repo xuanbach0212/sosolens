@@ -6,7 +6,7 @@ from typing import Any
 import httpx
 
 SOSOVALUE_BASE = "https://openapi.sosovalue.com/openapi/v1"
-MIN_INTERVAL_SECS = 3.0  # 20 req/min = 1 call per 3s
+MIN_INTERVAL_SECS = 6.0  # 10 req/min — observed SoSoValue free-tier burst limit is ~10/min
 
 
 class SoSoValueClient:
@@ -25,18 +25,29 @@ class SoSoValueClient:
             timeout=10.0,
         )
         self._last_call_at: float = 0.0
+        self._backoff_until: float = 0.0  # shared: any 429 pushes all callers back
+        self._rate_lock = asyncio.Lock()
+
+    async def _claim_slot(self) -> None:
+        """Serialize rate-limit slot acquisition. All callers share backoff state."""
+        async with self._rate_lock:
+            backoff = self._backoff_until - time.monotonic()
+            if backoff > 0:
+                await asyncio.sleep(backoff)
+            elapsed = time.monotonic() - self._last_call_at
+            if elapsed < MIN_INTERVAL_SECS:
+                await asyncio.sleep(MIN_INTERVAL_SECS - elapsed)
+            self._last_call_at = time.monotonic()
 
     async def _get(self, path: str, params: dict | None = None) -> Any:
-        elapsed = time.monotonic() - self._last_call_at
-        if elapsed < MIN_INTERVAL_SECS:
-            await asyncio.sleep(MIN_INTERVAL_SECS - elapsed)
+        await self._claim_slot()
 
         for attempt in range(3):
-            self._last_call_at = time.monotonic()
             try:
                 r = await self._client.get(path, params=params)
                 if r.status_code == 429:
-                    await asyncio.sleep(60)
+                    self._backoff_until = time.monotonic() + 65  # shared cooldown
+                    await self._claim_slot()
                     continue
                 r.raise_for_status()
                 return r.json()
