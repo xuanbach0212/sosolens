@@ -80,35 +80,54 @@ export default function SignalFeed({ signals, selectedId, onSelect, stats, isLoa
             First signals in ~60s
           </div>
         ) : (
-          signals.map((signal) => {
-            const isActive = signal.id === selectedId;
-            const isFresh = freshIds.has(signal.id);
-            const colorClass = TYPE_COLOR[signal.type];
-            return (
-              <button
-                key={signal.id}
-                onClick={() => onSelect(signal.id)}
-                className={`w-full text-left px-3 py-2 border-b border-terminal-bordersoft border-l-2 cursor-pointer transition-colors ${
-                  isActive
-                    ? `border-l-current bg-terminal-panel ${colorClass}`
-                    : "border-l-transparent hover:bg-terminal-panel"
-                } ${isFresh ? "new-signal-pulse" : ""}`}
-              >
-                <div className={`text-[length:var(--fs-feedtype)] font-bold tracking-wide flex items-center gap-1 ${colorClass.split(" ")[0]}`}>
-                  <VerdictMark type={signal.type} /> {signal.type}
+          // Group signals by sector while preserving the newest-first order
+          // already baked in by the backend (ORDER BY updated_at DESC).
+          (() => {
+            const grouped = new Map<string, Signal[]>();
+            for (const sig of signals) {
+              const arr = grouped.get(sig.sector) ?? [];
+              arr.push(sig);
+              grouped.set(sig.sector, arr);
+            }
+            return Array.from(grouped.entries()).map(([sector, sigs]) => (
+              <div key={sector}>
+                <div className="px-3 pt-2 pb-1 bg-terminal-panel/40 border-b border-terminal-bordersoft flex items-baseline gap-2">
+                  <span
+                    className="text-[9px] font-bold text-terminal-text tracking-widest truncate"
+                    title={sector}
+                  >
+                    {sector.toUpperCase()}
+                  </span>
+                  <span className="text-[9px] text-terminal-muted">
+                    {sigs.length} signal{sigs.length !== 1 ? "s" : ""}
+                  </span>
                 </div>
-                <div
-                  className="text-[length:var(--fs-sector)] text-terminal-text mt-0.5 truncate"
-                  title={signal.sector}
-                >
-                  {signal.sector}
-                </div>
-                <div className="text-[10px] text-terminal-muted mt-0.5">
-                  {signal.confidence}% · {signal.risk} · {signal.timeAgo}
-                </div>
-              </button>
-            );
-          })
+                {sigs.map((signal) => {
+                  const isActive = signal.id === selectedId;
+                  const isFresh = freshIds.has(signal.id);
+                  const colorClass = TYPE_COLOR[signal.type];
+                  return (
+                    <button
+                      key={signal.id}
+                      onClick={() => onSelect(signal.id)}
+                      className={`w-full text-left px-3 py-2 border-b border-terminal-bordersoft border-l-2 cursor-pointer transition-colors ${
+                        isActive
+                          ? `border-l-current bg-terminal-panel ${colorClass}`
+                          : "border-l-transparent hover:bg-terminal-panel"
+                      } ${isFresh ? "new-signal-pulse" : ""}`}
+                    >
+                      <div className={`text-[length:var(--fs-feedtype)] font-bold tracking-wide flex items-center gap-1 ${colorClass.split(" ")[0]}`}>
+                        <VerdictMark type={signal.type} /> {signal.type}
+                      </div>
+                      <div className="text-[10px] text-terminal-muted mt-0.5">
+                        {signal.confidence}% · {signal.risk} · {signal.timeAgo}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            ));
+          })()
         )}
       </div>
 
