@@ -43,6 +43,48 @@ async def fetch_global_market() -> dict | None:
         logger.warning("[currency] global market fetch failed: %s", exc)
         return None
 
+async def fetch_token_prices() -> dict[str, dict] | None:
+    """Live price + 24h change for the top-250 tokens by market cap, keyed by
+    upper-case symbol, from CoinGecko /coins/markets.
+
+    SoSoValue has no bulk price endpoint (each currency needs a numeric ID), so
+    this is the only practical source for per-token TOP TOKENS prices beyond
+    BTC/ETH. Free, no API key. Called ~hourly (not per 30s tick) to respect
+    CoinGecko's free rate limit. First occurrence of a symbol wins (highest
+    market cap), resolving collisions like 'M'/'NFT' to the largest coin."""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            r = await client.get(
+                "https://api.coingecko.com/api/v3/coins/markets",
+                params={
+                    "vs_currency": "usd",
+                    "order": "market_cap_desc",
+                    "per_page": 250,
+                    "page": 1,
+                    "price_change_percentage": "24h",
+                },
+            )
+            r.raise_for_status()
+            rows = r.json() or []
+    except Exception as exc:
+        logger.warning("[currency] token prices fetch failed: %s", exc)
+        return None
+
+    out: dict[str, dict] = {}
+    for row in rows:
+        sym = str(row.get("symbol") or "").upper()
+        price = float(row.get("current_price") or 0)
+        if not sym or not price or sym in out:
+            continue
+        change = float(row.get("price_change_percentage_24h") or 0) / 100
+        out[sym] = {
+            "price": _fmt_token_price(price),
+            "change": _fmt_change(change),
+            "positive": change >= 0,
+        }
+    return out or None
+
+
 # Stable numeric currency IDs from GET /currencies list
 BTC_ID = "1673723677362319866"
 ETH_ID = "1673723677362319867"
@@ -50,6 +92,22 @@ ETH_ID = "1673723677362319867"
 
 def _fmt_price(usd: float) -> str:
     return f"${usd:,.0f}"
+
+
+def _fmt_token_price(usd: float) -> str:
+    """Price formatter for alt-tokens — keeps precision for sub-$1 coins so
+    DOGE/ONDO/SHIB don't collapse to '$0' the way whole-dollar _fmt_price does."""
+    if usd >= 1000:
+        return f"${usd:,.0f}"
+    if usd >= 1:
+        return f"${usd:,.2f}"
+    if usd >= 0.01:
+        return f"${usd:.4f}"
+    if usd >= 0.0001:
+        return f"${usd:.6f}"
+    if usd > 0:
+        return f"${usd:.8f}"  # ultra-low caps (APENFT etc.) — avoid "$0.000000"
+    return "$0"
 
 
 def _fmt_large(usd: float) -> str:

@@ -250,5 +250,8 @@ When a task, issue, or feature is complete, always do ALL of the following befor
   when SoSoValue genuinely exposes no equivalent endpoint, and keep it on the
   hourly agent loop (not the 30s tick) to respect free rate limits. Current
   approved exceptions: alternative.me (fear/greed), CoinGecko `/global`
-  (total market cap / 24h volume — SoSoValue has no market-wide total), and
-  FRED (real macro indicator values — Fed rate / CPI / DXY / yields).
+  (total market cap / 24h volume — SoSoValue has no market-wide total),
+  CoinGecko `/coins/markets` (per-token TOP TOKENS prices + 24h change for
+  the top-250 by market cap — SoSoValue has no bulk price endpoint; each
+  currency needs a numeric ID, so only BTC/ETH are practical via SoSoValue),
+  and FRED (real macro indicator values — Fed rate / CPI / DXY / yields).

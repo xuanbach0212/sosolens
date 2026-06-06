@@ -121,6 +121,29 @@ async def _refresh_market_cache() -> None:
     _t.add_done_callback(_background_tasks.discard)
 
 
+async def _refresh_coingecko_cache() -> None:
+    """Refresh the CoinGecko-sourced caches (total market cap/volume + per-token
+    prices). Called once at the top of run_agent — BEFORE the detector loop — so
+    each run's signal topTokens resolve against fresh prices in the same cycle.
+    Hourly cadence keeps us within CoinGecko's free rate limit."""
+    from backend.services.currency import fetch_global_market, fetch_token_prices
+    try:
+        glob = await fetch_global_market()
+        if glob:
+            cache.put("global_market", glob)
+            logger.info("[agent] cache: global_market updated")
+    except Exception as exc:
+        logger.warning("[agent] cache: global_market failed: %s", exc)
+    # Per-token prices (top-250) power TOP TOKENS for symbols beyond BTC/ETH.
+    try:
+        token_prices = await fetch_token_prices()
+        if token_prices:
+            cache.put("token_prices", token_prices)
+            logger.info("[agent] cache: token_prices updated (%d symbols)", len(token_prices))
+    except Exception as exc:
+        logger.warning("[agent] cache: token_prices failed: %s", exc)
+
+
 async def _refresh_panel_cache() -> None:
     """Fetch panel data and store in cache. Market status is fetched first (highest priority).
     ETF and sector flows are skipped if detectors already cached them this run."""
@@ -129,17 +152,8 @@ async def _refresh_panel_cache() -> None:
     from backend.services.sector import fetch_sector_flows
     from backend.services.btc_treasuries import fetch_btc_treasuries
     from backend.services.news import fetch_news_headlines
-    from backend.services.currency import fetch_market_status, fetch_global_market
+    from backend.services.currency import fetch_market_status
     client = get_client()
-    # Total market cap/volume from CoinGecko — refreshed here (hourly) rather
-    # than on the 30s tick to respect CoinGecko's free rate limit.
-    try:
-        glob = await fetch_global_market()
-        if glob:
-            cache.put("global_market", glob)
-            logger.info("[agent] cache: global_market updated")
-    except Exception as exc:
-        logger.warning("[agent] cache: global_market failed: %s", exc)
     # Market status first — most visible data, fewest calls (2)
     try:
         cache.put("market_status", await fetch_market_status(client))
@@ -376,6 +390,8 @@ def build_full_snapshot() -> dict:
 
 async def run_agent() -> None:
     logger.info(f"[agent] run_agent: {len(DETECTORS)} detectors loaded")
+    # Refresh CoinGecko caches first so detector topTokens resolve live prices this run.
+    await _refresh_coingecko_cache()
     if not DETECTORS:
         await _refresh_panel_cache()
         logger.info("[agent] No detectors registered — nothing to do")
