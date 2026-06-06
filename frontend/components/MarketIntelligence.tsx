@@ -215,9 +215,13 @@ export default function MarketIntelligence({
         </div>
       )}
 
-      {/* VC Activity */}
+      {/* VC Activity — funding-round mentions parsed from the news feed,
+          not a real VC-round dataset, so labelled accordingly. */}
       <div className={panelCls}>
-        <PanelHeader title="VC ACTIVITY · 7D" />
+        <PanelHeader title="FUNDING MENTIONS" />
+        <div className="text-[9px] text-terminal-muted/70 italic -mt-1 mb-1">
+          from news headlines
+        </div>
         {vcActivity.length === 0 && (
           <div className="text-[10px] text-terminal-muted italic">Loading...</div>
         )}
