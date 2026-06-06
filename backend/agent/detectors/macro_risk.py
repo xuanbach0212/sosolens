@@ -59,7 +59,7 @@ class MacroRiskDetector:
         return [{
             "id": "macro-risk-classifier",
             "type": sig_type,
-            "sector": f"Macro — {label}",
+            "sector": "Macro",
             "timeAgo": "0h",
             "dataSources": data_sources,
             "topTokens": [

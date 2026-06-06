@@ -97,7 +97,12 @@ export default function SignalFeed({ signals, selectedId, onSelect, stats, isLoa
                 <div className={`text-[length:var(--fs-feedtype)] font-bold tracking-wide flex items-center gap-1 ${colorClass.split(" ")[0]}`}>
                   <VerdictMark type={signal.type} /> {signal.type}
                 </div>
-                <div className="text-[length:var(--fs-sector)] text-terminal-text mt-0.5">{signal.sector}</div>
+                <div
+                  className="text-[length:var(--fs-sector)] text-terminal-text mt-0.5 truncate"
+                  title={signal.sector}
+                >
+                  {signal.sector}
+                </div>
                 <div className="text-[10px] text-terminal-muted mt-0.5">
                   {signal.confidence}% · {signal.risk} · {signal.timeAgo}
                 </div>
