@@ -172,7 +172,7 @@ async def test_check_outcomes_resolves_avoid_loss(mem_session_factory):
 
 @pytest.mark.asyncio
 async def test_check_outcomes_skips_young_rows(mem_session_factory):
-    _insert_pending(mem_session_factory, "BUY", 90000.0, hours_ago=12)  # too recent
+    _insert_pending(mem_session_factory, "BUY", 90000.0, hours_ago=2)  # younger than the 4h horizon
     with patch("backend.services.currency.fetch_btc_price_usd", new=AsyncMock(return_value=95000.0)), \
          patch("backend.services.sosovalue.get_client", return_value=AsyncMock()):
         await check_outcomes()
@@ -259,7 +259,10 @@ def test_enrich_skips_skip_in_accuracy(mem_session_factory):
         payloads = [{"id": "macro-risk-classifier", "accuracy": 0, "pastSignals": []}]
         result, global_acc = _enrich_with_outcomes(db, payloads)
     assert result[0]["accuracy"] == 100  # SKIP not counted; 1 WIN / 1 scored
-    assert len(result[0]["pastSignals"]) == 2  # both shown in history
+    # SIMILAR PAST SIGNALS shows only resolved WIN/LOSS rows — the SKIP (a WATCH
+    # non-event) is excluded so it can't render as a misleading "— ✗" entry.
+    assert len(result[0]["pastSignals"]) == 1
+    assert result[0]["pastSignals"][0]["label"] == "BUY"
 
 
 def test_enrich_isolates_per_detector(mem_session_factory):

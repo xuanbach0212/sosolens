@@ -26,6 +26,15 @@ _CACHE_PUSH_SECRET = os.environ.get("CACHE_PUSH_SECRET", "")
 
 _background_tasks: set[asyncio.Task] = set()
 
+# Outcome resolution horizon — how long after a signal fires we measure its
+# forward return (WIN/LOSS). A short horizon keeps SIMILAR PAST SIGNALS and the
+# accuracy stats populated in near-real-time; set OUTCOME_HORIZON_HOURS=24 for a
+# canonical daily window.
+_OUTCOME_HORIZON_HOURS = int(os.environ.get("OUTCOME_HORIZON_HOURS", "4"))
+# Skip logging a new outcome entry for a detector if one was logged within this
+# window. Kept below the horizon so history accumulates steadily.
+_OUTCOME_DEDUP_HOURS = int(os.environ.get("OUTCOME_DEDUP_HOURS", "3"))
+
 
 async def _push_to_cache(snapshot: dict) -> None:
     if not _CACHE_WORKER_URL or not _CACHE_PUSH_SECRET:
@@ -197,7 +206,7 @@ def format_time_ago(delta: timedelta) -> str:
 
 
 def _record_signal_entries(active_signals: dict[str, str], btc_price: float) -> None:
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=20)
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=_OUTCOME_DEDUP_HOURS)
     with get_db() as db:
         for detector_id, signal_type in active_signals.items():
             recent = db.scalars(
@@ -220,7 +229,7 @@ async def check_outcomes() -> None:
     from backend.services.sosovalue import get_client
     from backend.services.currency import fetch_btc_price_usd
 
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=_OUTCOME_HORIZON_HOURS)
     with get_db() as db:
         pending = db.scalars(
             select(SignalOutcome)
@@ -281,7 +290,10 @@ def _enrich_with_outcomes(db, payloads: list[dict]) -> tuple[list[dict], int]:
         scored = [o for o in det_rows if o.outcome in ("WIN", "LOSS")]
         wins   = [o for o in scored if o.outcome == "WIN"]
         p["accuracy"]    = round(len(wins) / len(scored) * 100) if scored else 0
-        p["pastSignals"] = [_fmt_outcome(o) for o in det_rows[:3]]
+        # SIMILAR PAST SIGNALS shows only resolved WIN/LOSS outcomes — SKIP
+        # rows (WATCH non-events) are not real past signals and were rendering
+        # as misleading "— ✗" entries.
+        p["pastSignals"] = [_fmt_outcome(o) for o in scored[:3]]
 
     all_scored = [o for o in rows if o.outcome in ("WIN", "LOSS")]
     all_wins   = [o for o in all_scored if o.outcome == "WIN"]
