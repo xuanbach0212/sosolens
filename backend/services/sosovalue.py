@@ -76,6 +76,9 @@ class SoSoValueClient:
     async def get_index_snapshot(self, ticker: str) -> Any:
         return await self._get(f"/indices/{ticker}/market-snapshot")
 
+    async def get_index_constituents(self, ticker: str) -> Any:
+        return await self._get(f"/indices/{ticker}/constituents")
+
     async def get_macro_events(self) -> Any:
         return await self._get("/macro/events")
 
@@ -93,6 +96,12 @@ class SoSoValueClient:
 
     async def get_etf_history(self, etf_id: str, days: int = 7) -> Any:
         return await self._get("/etf/market/history", params={"etfId": etf_id, "days": days})
+
+    async def get_etf_summary_history(self, symbol: str, country_code: str = "US", limit: int = 30) -> Any:
+        return await self._get(
+            "/etfs/summary-history",
+            params={"symbol": symbol, "country_code": country_code, "limit": limit},
+        )
 
     async def get_currency_snapshot(self, currency_id: str) -> Any:
         return await self._get(f"/currencies/{currency_id}/market-snapshot")

@@ -26,6 +26,15 @@ _CACHE_PUSH_SECRET = os.environ.get("CACHE_PUSH_SECRET", "")
 
 _background_tasks: set[asyncio.Task] = set()
 
+# Outcome resolution horizon — how long after a signal fires we measure its
+# forward return (WIN/LOSS). A short horizon keeps SIMILAR PAST SIGNALS and the
+# accuracy stats populated in near-real-time; set OUTCOME_HORIZON_HOURS=24 for a
+# canonical daily window.
+_OUTCOME_HORIZON_HOURS = int(os.environ.get("OUTCOME_HORIZON_HOURS", "4"))
+# Skip logging a new outcome entry for a detector if one was logged within this
+# window. Kept below the horizon so history accumulates steadily.
+_OUTCOME_DEDUP_HOURS = int(os.environ.get("OUTCOME_DEDUP_HOURS", "3"))
+
 
 async def _push_to_cache(snapshot: dict) -> None:
     if not _CACHE_WORKER_URL or not _CACHE_PUSH_SECRET:
@@ -69,7 +78,14 @@ async def _refresh_macro_cache() -> None:
         nearest_high = next((e for e in events if e["high_impact"]), None)
         risk = "risk-off" if nearest_high and nearest_high["days_until"] <= 3 else ("neutral" if nearest_high else "risk-on")
 
-        cache.put("macro_status", {"indicators": indicators, "macro_status": macro_status, "upcoming_events": upcoming, "risk_environment": risk})
+        # MACRO STATUS shows real indicator levels (Fed rate, CPI, 10Y, USD) from
+        # FRED when a key is configured; the event calendar lives in UPCOMING
+        # EVENTS. Without FRED_API_KEY we fall back to the calendar-derived rows.
+        from backend.services.fred import fetch_fred_indicators
+        fred_rows = await fetch_fred_indicators()
+        panel_indicators = fred_rows if fred_rows else indicators
+
+        cache.put("macro_status", {"indicators": panel_indicators, "macro_status": macro_status, "upcoming_events": upcoming, "risk_environment": risk})
         logger.info("[agent] cache: macro_status updated (30-min)")
     except Exception as exc:
         logger.warning("[agent] cache: macro_refresh failed: %s", exc)
@@ -103,6 +119,29 @@ async def _refresh_market_cache() -> None:
     _t = asyncio.create_task(_push_to_cache(build_full_snapshot()))
     _background_tasks.add(_t)
     _t.add_done_callback(_background_tasks.discard)
+
+
+async def _refresh_coingecko_cache() -> None:
+    """Refresh the CoinGecko-sourced caches (total market cap/volume + per-token
+    prices). Called once at the top of run_agent — BEFORE the detector loop — so
+    each run's signal topTokens resolve against fresh prices in the same cycle.
+    Hourly cadence keeps us within CoinGecko's free rate limit."""
+    from backend.services.currency import fetch_global_market, fetch_token_prices
+    try:
+        glob = await fetch_global_market()
+        if glob:
+            cache.put("global_market", glob)
+            logger.info("[agent] cache: global_market updated")
+    except Exception as exc:
+        logger.warning("[agent] cache: global_market failed: %s", exc)
+    # Per-token prices (top-250) power TOP TOKENS for symbols beyond BTC/ETH.
+    try:
+        token_prices = await fetch_token_prices()
+        if token_prices:
+            cache.put("token_prices", token_prices)
+            logger.info("[agent] cache: token_prices updated (%d symbols)", len(token_prices))
+    except Exception as exc:
+        logger.warning("[agent] cache: token_prices failed: %s", exc)
 
 
 async def _refresh_panel_cache() -> None:
@@ -153,6 +192,34 @@ async def _refresh_panel_cache() -> None:
             logger.warning("[agent] cache: news/vc_activity failed: %s", exc)
 
 
+async def _refresh_ai_briefing() -> None:
+    """Replace the raw-headline briefing with an LLM synthesis of current data.
+
+    Runs after the panel cache is populated. Leaves the existing headline-based
+    briefing in place if no AI provider is configured/available."""
+    from backend.agent.explainer import generate_briefing
+    news_cache = cache.get("news")
+    if not isinstance(news_cache, dict):
+        return
+    headlines = news_cache.get("headlines", [])
+    context = {
+        "market": cache.get("market_status"),
+        "sectorFlows": cache.get("sector_flows"),
+        "etfFlows": cache.get("etf_flows"),
+        "btcTreasuries": cache.get("btc_treasuries"),
+        "headlines": [h.get("text") for h in headlines[:6] if isinstance(h, dict)],
+    }
+    try:
+        bullets = await generate_briefing(context)
+    except Exception as exc:
+        logger.warning("[agent] AI briefing generation failed: %s", exc)
+        return
+    if bullets:
+        news_cache["briefing"] = bullets
+        cache.put("news", news_cache)
+        logger.info("[agent] cache: AI briefing generated (%d points)", len(bullets))
+
+
 _MAX_SIGNAL_AGE_HOURS = 25
 
 
@@ -169,7 +236,7 @@ def format_time_ago(delta: timedelta) -> str:
 
 
 def _record_signal_entries(active_signals: dict[str, str], btc_price: float) -> None:
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=20)
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=_OUTCOME_DEDUP_HOURS)
     with get_db() as db:
         for detector_id, signal_type in active_signals.items():
             recent = db.scalars(
@@ -192,7 +259,7 @@ async def check_outcomes() -> None:
     from backend.services.sosovalue import get_client
     from backend.services.currency import fetch_btc_price_usd
 
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=_OUTCOME_HORIZON_HOURS)
     with get_db() as db:
         pending = db.scalars(
             select(SignalOutcome)
@@ -253,7 +320,10 @@ def _enrich_with_outcomes(db, payloads: list[dict]) -> tuple[list[dict], int]:
         scored = [o for o in det_rows if o.outcome in ("WIN", "LOSS")]
         wins   = [o for o in scored if o.outcome == "WIN"]
         p["accuracy"]    = round(len(wins) / len(scored) * 100) if scored else 0
-        p["pastSignals"] = [_fmt_outcome(o) for o in det_rows[:3]]
+        # SIMILAR PAST SIGNALS shows only resolved WIN/LOSS outcomes — SKIP
+        # rows (WATCH non-events) are not real past signals and were rendering
+        # as misleading "— ✗" entries.
+        p["pastSignals"] = [_fmt_outcome(o) for o in scored[:3]]
 
     all_scored = [o for o in rows if o.outcome in ("WIN", "LOSS")]
     all_wins   = [o for o in all_scored if o.outcome == "WIN"]
@@ -320,6 +390,8 @@ def build_full_snapshot() -> dict:
 
 async def run_agent() -> None:
     logger.info(f"[agent] run_agent: {len(DETECTORS)} detectors loaded")
+    # Refresh CoinGecko caches first so detector topTokens resolve live prices this run.
+    await _refresh_coingecko_cache()
     if not DETECTORS:
         await _refresh_panel_cache()
         logger.info("[agent] No detectors registered — nothing to do")
@@ -336,7 +408,9 @@ async def run_agent() -> None:
         for raw in raw_signals:
             scores = score_signal(raw)
             explanation = await explain_signal(raw)
-            payload = {**raw, **scores, "explanation": explanation}
+            # Detector-supplied confidence/risk (e.g. per-sector rotation) take
+            # precedence; scorer only fills gaps for detectors that omit them.
+            payload = {**scores, **raw, "explanation": explanation}
 
             with get_db() as db:
                 existing = db.query(Signal).filter_by(signal_id=raw["id"]).first()
@@ -362,6 +436,7 @@ async def run_agent() -> None:
             generated += 1
 
     await _refresh_panel_cache()
+    await _refresh_ai_briefing()
     if active_signals:
         try:
             from backend.services.sosovalue import get_client

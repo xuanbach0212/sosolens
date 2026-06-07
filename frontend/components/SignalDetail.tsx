@@ -180,30 +180,30 @@ export default function SignalDetail({ signal }: Props) {
         </div>
 
         {/* SoDEX Trade Button */}
-        {signal.sodexPair && signal.sodexPair !== "—" && (
-          <div>
-            <div className="border border-transparent rounded p-3 bg-terminal-panel2">
-              <div className="text-[10px] font-bold text-terminal-yellow mb-2 flex items-center gap-1"><Bolt /> Trade on SoDEX</div>
-              <div className="text-[10px] text-terminal-text mb-0.5">{signal.sodexPair}</div>
-              {signal.sodexSlippage && (
-                <div className="text-[10px] text-terminal-muted mb-0.5">
-                  Slippage {signal.sodexSlippage}
-                </div>
-              )}
-              {signal.sodexEstOutput && signal.sodexEstOutput !== "—" && (
-                <div className="text-[10px] text-terminal-muted mb-3">
-                  Est. output: {signal.sodexEstOutput}
-                </div>
-              )}
-              <button
-                onClick={() => window.open(buildSodexUrl(signal.sodexPair), "_blank", "noopener,noreferrer")}
-                className="w-full border border-terminal-yellow text-terminal-yellow text-[10px] py-1.5 rounded hover:bg-terminal-yellow hover:text-terminal-bg transition-colors tracking-widest font-bold"
-              >
-                [ OPEN SODEX ]
-              </button>
+        <div>
+          <div className="border border-transparent rounded p-3 bg-terminal-panel2">
+            <div className="text-[10px] font-bold text-terminal-yellow mb-2 flex items-center gap-1"><Bolt /> Trade on SoDEX</div>
+            <div className="text-[10px] text-terminal-text mb-0.5">
+              {signal.sodexPair && signal.sodexPair !== "—" ? signal.sodexPair : "BROWSE MARKETS"}
             </div>
+            {signal.sodexSlippage && (
+              <div className="text-[10px] text-terminal-muted mb-0.5">
+                Slippage {signal.sodexSlippage}
+              </div>
+            )}
+            {signal.sodexEstOutput && signal.sodexEstOutput !== "—" && (
+              <div className="text-[10px] text-terminal-muted mb-3">
+                Est. output: {signal.sodexEstOutput}
+              </div>
+            )}
+            <button
+              onClick={() => window.open(buildSodexUrl(signal.sodexPair ?? ""), "_blank", "noopener,noreferrer")}
+              className="w-full border border-terminal-yellow text-terminal-yellow text-[10px] py-1.5 rounded hover:bg-terminal-yellow hover:text-terminal-bg transition-colors tracking-widest font-bold"
+            >
+              [ OPEN SODEX ]
+            </button>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

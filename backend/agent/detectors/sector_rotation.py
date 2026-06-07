@@ -6,17 +6,6 @@ from backend.services.sector import fetch_sector_flows
 
 logger = logging.getLogger(__name__)
 
-SECTOR_TOKEN = {
-    "AI":      "FET",
-    "DeFi":    "UNI",
-    "RWA":     "ONDO",
-    "Layer 1": "ETH",
-    "Layer 2": "OP",
-    "Gaming":  "GALA",
-    "NFT":     "BLUR",
-    "Meme":    "DOGE",
-}
-
 
 def _sector_signal_type(change: float) -> tuple[str, int, str]:
     """Return (signal_type, confidence, risk) based on 7d sector flow change %."""
@@ -50,7 +39,9 @@ class SectorRotationDetector:
             change = sector.get("change", 0.0)
             sig_type, confidence, risk = _sector_signal_type(change)
             change_str = f"+{change:.1f}%" if change >= 0 else f"{change:.1f}%"
-            token = SECTOR_TOKEN.get(name, name.upper()[:4])
+
+            tokens = sector.get("tokens") or []
+            primary = tokens[0] if tokens else name.upper()[:4]
 
             signals.append({
                 "id": f"sector-{name.lower().replace(' ', '-')}",
@@ -66,11 +57,12 @@ class SectorRotationDetector:
                     {"name": "Sector", "value": name, "signal": "🟡"},
                 ],
                 "topTokens": [
-                    token_from_cache(token, change >= 0, change_str),
-                ],
+                    token_from_cache(t, change >= 0, change_str if t == primary else None)
+                    for t in tokens
+                ] if tokens else [],
                 "pastSignals": [],
                 "accuracy": 0,
-                "sodexPair": f"BUY {token}/USDC" if sig_type == "BUY" else "—",
+                "sodexPair": f"BUY {primary}/USDC" if sig_type == "BUY" else (f"SELL {primary}/USDC" if sig_type == "AVOID" else f"WATCH {primary}/USDC"),
                 "sodexSlippage": "1%",
                 "sodexEstOutput": "—",
                 "confidence": confidence,
