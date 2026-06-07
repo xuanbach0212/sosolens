@@ -44,32 +44,43 @@ async def fetch_global_market() -> dict | None:
         return None
 
 async def fetch_token_prices() -> dict[str, dict] | None:
-    """Live price + 24h change for the top-250 tokens by market cap, keyed by
+    """Live price + 24h change for the top-500 tokens by market cap, keyed by
     upper-case symbol, from CoinGecko /coins/markets.
 
     SoSoValue has no bulk price endpoint (each currency needs a numeric ID), so
     this is the only practical source for per-token TOP TOKENS prices beyond
     BTC/ETH. Free, no API key. Called ~hourly (not per 30s tick) to respect
-    CoinGecko's free rate limit. First occurrence of a symbol wins (highest
-    market cap), resolving collisions like 'M'/'NFT' to the largest coin."""
+    CoinGecko's free rate limit — two pages of 250 per cycle catches mid-cap
+    sector constituents (IMX, etc.) that drop below rank 250 in a down market.
+    First occurrence of a symbol wins (highest market cap), resolving collisions
+    like 'M'/'NFT' to the largest coin."""
+    rows: list[dict] = []
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            r = await client.get(
-                "https://api.coingecko.com/api/v3/coins/markets",
-                params={
-                    "vs_currency": "usd",
-                    "order": "market_cap_desc",
-                    "per_page": 250,
-                    "page": 1,
-                    "price_change_percentage": "24h",
-                },
-            )
-            r.raise_for_status()
-            rows = r.json() or []
+            for page in (1, 2):
+                r = await client.get(
+                    "https://api.coingecko.com/api/v3/coins/markets",
+                    params={
+                        "vs_currency": "usd",
+                        "order": "market_cap_desc",
+                        "per_page": 250,
+                        "page": page,
+                        "price_change_percentage": "24h",
+                    },
+                )
+                r.raise_for_status()
+                page_rows = r.json() or []
+                rows.extend(page_rows)
+                if len(page_rows) < 250:
+                    break  # last page reached
     except Exception as exc:
         logger.warning("[currency] token prices fetch failed: %s", exc)
-        return None
+        return rows and _rows_to_prices(rows) or None
 
+    return _rows_to_prices(rows)
+
+
+def _rows_to_prices(rows: list[dict]) -> dict[str, dict] | None:
     out: dict[str, dict] = {}
     for row in rows:
         sym = str(row.get("symbol") or "").upper()

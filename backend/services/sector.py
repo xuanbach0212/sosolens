@@ -32,30 +32,41 @@ _SLUG_TO_TICKER: dict[str, str] = {
     "curve-dao-token":    "CRV",
     "maker":              "MKR",
     "aave":               "AAVE",
+    "morpho-token":       "MORPHO",
     # RWA
     "ondo-finance":       "ONDO",
     "pendle":             "PENDLE",
+    "keeta":              "KTA",
+    "creditcoin":         "CTC",
     # Layer 1
     "ethereum":           "ETH",
     "binance-coin":       "BNB",
     "solana":             "SOL",
     "avalanche-2":        "AVAX",
+    "avalanche":          "AVAX",
     "bitcoin":            "BTC",
+    "tron":               "TRX",
+    "cardano":            "ADA",
+    "toncoin":            "TON",
     # Layer 2
     "mantle":             "MNT",
     "polygon-ex-matic":   "POL",
     "polygon":            "POL",
     "arbitrum":           "ARB",
     "optimism":           "OP",
+    "stacks":             "STX",
+    "celestia":           "TIA",
     # Gaming
     "axie-infinity":      "AXS",
     "the-sandbox":        "SAND",
     "decentraland":       "MANA",
     "illuvium":           "ILV",
+    "immutablex":         "IMX",
     # NFT
     "pudgy-penguins":     "PENGU",
     "apenft":             "NFT",
     "apecoin":            "APE",
+    "superverse":         "SUPER",
     # Meme
     "dogecoin":           "DOGE",
     "memecore":           "M",
@@ -86,12 +97,12 @@ async def fetch_sector_flows(client: SoSoValueClient) -> list[dict]:
             change_frac = roi_7d if roi_7d is not None else (data.get("change_pct_24h") or 0)
             change_pct = float(change_frac) * 100
 
-            # Fetch top 3 constituents by weight
+            # Fetch top 6 constituents by weight (fills the 3-col grid as 2 rows)
             try:
                 craw = await client.get_index_constituents(ticker)
                 constituents = craw.get("data") or []
                 constituents.sort(key=lambda c: float(c.get("weight") or 0), reverse=True)
-                top_tokens = [_slug_to_ticker(c["symbol"]) for c in constituents[:3] if c.get("symbol")]
+                top_tokens = [_slug_to_ticker(c["symbol"]) for c in constituents[:6] if c.get("symbol")]
             except Exception as exc:
                 logger.warning("[sector] %s constituents failed: %s", display_name, exc)
                 top_tokens = []

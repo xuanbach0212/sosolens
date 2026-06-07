@@ -125,6 +125,48 @@ async def test_fetch_token_prices_returns_none_on_error():
         assert await fetch_token_prices() is None
 
 
+def _bulk_rows(prefix, n, price=1.0):
+    return [
+        {"symbol": f"{prefix}{i}", "current_price": price, "price_change_percentage_24h": 0.0}
+        for i in range(n)
+    ]
+
+
+@pytest.mark.asyncio
+async def test_fetch_token_prices_paginates_two_pages():
+    # A full first page (250) triggers a second request; page-2 symbols are merged.
+    client = AsyncMock()
+    client.get.side_effect = [_Resp(_bulk_rows("A", 250)), _Resp(_bulk_rows("B", 5))]
+    with patch("backend.services.currency.httpx.AsyncClient") as mk:
+        mk.return_value.__aenter__.return_value = client
+        result = await fetch_token_prices()
+    assert client.get.await_count == 2
+    assert "A0" in result and "B4" in result  # both pages present
+
+
+@pytest.mark.asyncio
+async def test_fetch_token_prices_stops_after_short_first_page():
+    # A short first page (<250) means no second request.
+    client = AsyncMock()
+    client.get.side_effect = [_Resp(_bulk_rows("A", 10))]
+    with patch("backend.services.currency.httpx.AsyncClient") as mk:
+        mk.return_value.__aenter__.return_value = client
+        result = await fetch_token_prices()
+    assert client.get.await_count == 1
+    assert len(result) == 10
+
+
+@pytest.mark.asyncio
+async def test_fetch_token_prices_keeps_page1_when_page2_fails():
+    # If the second page errors, the already-fetched first page is still returned.
+    client = AsyncMock()
+    client.get.side_effect = [_Resp(_bulk_rows("A", 250)), Exception("page 2 boom")]
+    with patch("backend.services.currency.httpx.AsyncClient") as mk:
+        mk.return_value.__aenter__.return_value = client
+        result = await fetch_token_prices()
+    assert result is not None and "A0" in result and len(result) == 250
+
+
 # ---------------------------------------------------------------------------
 # token_from_cache — resolves non-BTC/ETH symbols via the token_prices cache
 # ---------------------------------------------------------------------------
