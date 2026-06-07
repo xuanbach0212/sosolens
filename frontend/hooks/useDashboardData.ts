@@ -1,0 +1,225 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import type {
+  Signal,
+  SignalStats,
+  MarketStatus,
+  SectorFlow,
+  EtfFlow,
+  MacroItem,
+  MacroEvent,
+  BtcTreasury,
+  VcActivity,
+  NewsHeadline,
+  PriceSnapshot,
+  SignalOutcomeBlock,
+  EtfFlowSnapshot,
+} from '@/types';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+const REFRESH_INTERVAL_MS = 60_000;
+
+export interface DashboardData {
+  signals: Signal[];
+  stats: SignalStats;
+  market: MarketStatus | null;
+  sectorFlows: SectorFlow[];
+  etfFlows: EtfFlow[];
+  macroStatus: MacroItem[];
+  upcomingEvents: MacroEvent[];
+  riskEnvironment: string;
+  btcTreasuries: BtcTreasury[];
+  vcActivity: VcActivity[];
+  aiBriefing: string[];
+  newsHeadlines: NewsHeadline[];
+  priceHistory: PriceSnapshot[];
+  signalOutcomes: SignalOutcomeBlock[];
+  etfHistory: EtfFlowSnapshot[];
+  isDemoData: boolean;
+  isLoading: boolean;
+  isError: boolean;
+  isConnected: boolean;
+  lastUpdated: Date | null;
+  agentRunTick: number;
+  refresh: () => void;
+}
+
+export function useDashboardData(wallet?: string): DashboardData {
+  const [signals, setSignals] = useState<Signal[]>([]);
+  const [stats, setStats] = useState<SignalStats>({ today: 0, thisWeek: 0, accuracy: 0 });
+  const [market, setMarket] = useState<MarketStatus | null>(null);
+  const [sectorFlows, setSectorFlows] = useState<SectorFlow[]>([]);
+  const [etfFlows, setEtfFlows] = useState<EtfFlow[]>([]);
+  const [macroStatus, setMacroStatus] = useState<MacroItem[]>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<MacroEvent[]>([]);
+  const [riskEnvironment, setRiskEnvironment] = useState<string>("neutral");
+  const [btcTreasuries, setBtcTreasuries] = useState<BtcTreasury[]>([]);
+  const [vcActivity, setVcActivity] = useState<VcActivity[]>([]);
+  const [aiBriefing, setAiBriefing] = useState<string[]>([]);
+  const [newsHeadlines, setNewsHeadlines] = useState<NewsHeadline[]>([]);
+  const [priceHistory, setPriceHistory] = useState<PriceSnapshot[]>([]);
+  const [signalOutcomes, setSignalOutcomes] = useState<SignalOutcomeBlock[]>([]);
+  const [etfHistory, setEtfHistory] = useState<EtfFlowSnapshot[]>([]);
+  const [isDemoData, setIsDemoData] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isError, setIsError] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [agentRunTick, setAgentRunTick] = useState(0);
+
+  const fetchAll = useCallback(async () => {
+    setIsLoading(true);
+    setIsError(false);
+    try {
+      const [sigRes, mktRes, secRes, etfRes, macRes, btcRes, vcRes, newsRes, phRes, soRes, ehRes] =
+        await Promise.all([
+          fetch(`${API_BASE}/api/signals${wallet ? `?wallet=${encodeURIComponent(wallet)}` : ''}`),
+          fetch(`${API_BASE}/api/market`),
+          fetch(`${API_BASE}/api/sector-flows`),
+          fetch(`${API_BASE}/api/etf-flows`),
+          fetch(`${API_BASE}/api/macro`),
+          fetch(`${API_BASE}/api/btc-treasuries`),
+          fetch(`${API_BASE}/api/vc-activity`),
+          fetch(`${API_BASE}/api/news`),
+          fetch(`${API_BASE}/api/price-history?hours=24`),
+          fetch(`${API_BASE}/api/signal-outcomes?hours=48`),
+          fetch(`${API_BASE}/api/etf-history?hours=168`),
+        ]);
+
+      if (!sigRes.ok || !mktRes.ok) throw new Error('fetch failed');
+
+      const safeJson = async <T>(res: Response, fallback: T): Promise<T> => {
+        if (!res.ok) return fallback;
+        try { return await res.json(); } catch { return fallback; }
+      };
+
+      const [sigData, mktData, secData, etfData, macData, btcData, vcData, newsData, phData, soData, ehData] =
+        await Promise.all([
+          sigRes.json(), mktRes.json(),
+          safeJson(secRes, { sectorFlows: [] }),
+          safeJson(etfRes, { etfFlows: [] }),
+          safeJson(macRes, { macroStatus: [] as MacroItem[], riskEnvironment: 'neutral', upcomingEvents: [] as MacroEvent[] }),
+          safeJson(btcRes, { btcTreasuries: [] }),
+          safeJson(vcRes, { vcActivity: [] }),
+          safeJson(newsRes, { aiBriefing: [], newsHeadlines: [] }),
+          phRes.ok ? phRes.json() : Promise.resolve({ priceHistory: [] }),
+          soRes.ok ? soRes.json() : Promise.resolve({ signalOutcomes: [] }),
+          ehRes.ok ? ehRes.json() : Promise.resolve({ etfHistory: [] }),
+        ]);
+
+      setSignals(sigData.signals ?? []);
+      setStats(sigData.stats ?? { today: 0, thisWeek: 0, accuracy: 0 });
+      setMarket(mktData.market ?? null);
+      setIsDemoData(mktData.is_fallback ?? false);
+      setSectorFlows(secData.sectorFlows ?? []);
+      setEtfFlows(etfData.etfFlows ?? []);
+      setMacroStatus(macData.macroStatus ?? []);
+      setUpcomingEvents(macData.upcomingEvents ?? []);
+      setRiskEnvironment(macData.riskEnvironment ?? "neutral");
+      setBtcTreasuries(btcData.btcTreasuries ?? []);
+      setVcActivity(vcData.vcActivity ?? []);
+      setAiBriefing(newsData.aiBriefing ?? []);
+      setNewsHeadlines(newsData.newsHeadlines ?? []);
+      setPriceHistory(phData.priceHistory ?? []);
+      setSignalOutcomes(soData.signalOutcomes ?? []);
+      setEtfHistory(ehData.etfHistory ?? []);
+      setLastUpdated(new Date());
+      setAgentRunTick((t) => t + 1);
+    } catch {
+      setIsError(true);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [wallet]);
+
+  useEffect(() => {
+    // Load data immediately via REST so the page never hangs waiting for SSE
+    fetchAll();
+    let pollId: ReturnType<typeof setInterval> | null = setInterval(fetchAll, REFRESH_INTERVAL_MS);
+    const sseUrl = wallet
+      ? `${API_BASE}/api/stream?wallet=${encodeURIComponent(wallet)}`
+      : `${API_BASE}/api/stream`;
+    const es = new EventSource(sseUrl);
+
+    es.addEventListener('access_denied', () => {
+      // Server rejected wallet as free tier — close SSE, stay on polling fallback
+      es.close();
+      setIsConnected(false);
+    });
+
+    es.onmessage = (e) => {
+      // SSE connected — cancel REST polling, SSE keeps data fresh
+      if (pollId !== null) {
+        clearInterval(pollId);
+        pollId = null;
+      }
+      let snap: Record<string, unknown>;
+      try {
+        snap = JSON.parse(e.data);
+      } catch {
+        return;
+      }
+      // Agent run snapshots carry the full payload; market-only refreshes (30s
+      // cadence) just send {market: ...}. Tick when an agent field is present.
+      const isAgentRun =
+        snap.signals !== undefined ||
+        snap.sectorFlows !== undefined ||
+        snap.btcTreasuries !== undefined;
+      if (isAgentRun) setAgentRunTick((t) => t + 1);
+
+      if (snap.signals) setSignals(snap.signals as Signal[]);
+      if (snap.stats) setStats(snap.stats as SignalStats);
+      if (snap.market) setMarket(snap.market as MarketStatus);
+      if (typeof snap.is_fallback === 'boolean') setIsDemoData(snap.is_fallback);
+      if (snap.sectorFlows) setSectorFlows(snap.sectorFlows as SectorFlow[]);
+      if (snap.etfFlows) setEtfFlows(snap.etfFlows as EtfFlow[]);
+      if (snap.macroStatus) setMacroStatus(snap.macroStatus as MacroItem[]);
+      if (snap.upcomingEvents) setUpcomingEvents(snap.upcomingEvents as MacroEvent[]);
+      if (snap.riskEnvironment) setRiskEnvironment(snap.riskEnvironment as string);
+      if (snap.btcTreasuries) setBtcTreasuries(snap.btcTreasuries as BtcTreasury[]);
+      if (snap.vcActivity) setVcActivity(snap.vcActivity as VcActivity[]);
+      if (snap.aiBriefing) setAiBriefing(snap.aiBriefing as string[]);
+      if (snap.newsHeadlines) setNewsHeadlines(snap.newsHeadlines as NewsHeadline[]);
+      setLastUpdated(new Date());
+      setIsConnected(true);
+      setIsLoading(false);
+      setIsError(false);
+    };
+
+    es.onerror = () => {
+      setIsConnected(false);
+      // SSE failed — polling fallback is already running, nothing to do
+    };
+
+    return () => {
+      es.close();
+      if (pollId !== null) clearInterval(pollId);
+    };
+  }, [fetchAll, wallet]);
+
+  return {
+    signals,
+    stats,
+    market,
+    sectorFlows,
+    etfFlows,
+    macroStatus,
+    upcomingEvents,
+    riskEnvironment,
+    btcTreasuries,
+    vcActivity,
+    aiBriefing,
+    newsHeadlines,
+    priceHistory,
+    signalOutcomes,
+    etfHistory,
+    isDemoData,
+    isLoading,
+    isError,
+    isConnected,
+    lastUpdated,
+    agentRunTick,
+    refresh: fetchAll,
+  };
+}

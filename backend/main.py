@@ -1,0 +1,255 @@
+import asyncio
+import json
+import os
+from contextlib import asynccontextmanager, suppress
+from datetime import datetime, timedelta, timezone
+from dotenv import load_dotenv
+load_dotenv("backend/.env")
+
+# Free tier hides signals younger than this many minutes (premium bypasses).
+# Set to 0 for local dev so signals are visible immediately.
+_FREE_TIER_DELAY_MINS = int(os.environ.get("FREE_TIER_DELAY_MINUTES", "60"))
+
+from fastapi import FastAPI, Query
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+from backend.events import subscribe, unsubscribe
+from backend.services.subscription import is_subscribed, get_expiry
+from backend.data.hardcoded import (
+    MARKET_STATUS,
+    SECTOR_FLOWS,
+    ETF_FLOWS,
+    MACRO_STATUS,
+    BTC_TREASURIES,
+    VC_ACTIVITY,
+    AI_BRIEFING,
+    NEWS_HEADLINES,
+)
+from backend.agent.db import init_db, get_db
+from backend.agent.models import Signal, PriceSnapshot, SignalOutcome, EtfSnapshot
+from backend.agent.runner import run_agent, start_scheduler, build_full_snapshot, _enrich_with_outcomes, _refresh_market_cache, format_time_ago
+import backend.cache as cache
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    loaded = cache.load_from_disk()
+    if loaded:
+        print(f"[cache] restored {loaded} keys from disk — panels visible immediately")
+    scheduler = start_scheduler()
+    # Prioritize market cache so BTC/ETH show live within ~12s, then run full agent loop.
+    market_task = asyncio.create_task(_refresh_market_cache())
+    bootstrap_task = asyncio.create_task(run_agent())
+    try:
+        yield
+    finally:
+        for t in (market_task, bootstrap_task):
+            if not t.done():
+                t.cancel()
+                with suppress(asyncio.CancelledError):
+                    await t
+        scheduler.shutdown()
+
+
+app = FastAPI(title="SoSoLens API", version="0.1.0", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
+
+
+def _compute_stats(payloads: list[dict], accuracy: int) -> dict:
+    total = len(payloads)
+    return {"today": total, "thisWeek": total, "accuracy": accuracy}
+
+
+_MAX_SIGNAL_AGE_HOURS = 25
+
+
+@app.get("/api/signals")
+def get_signals(wallet: str | None = Query(default=None)) -> dict:
+    premium = is_subscribed(wallet) if wallet else False
+    delay_cutoff = (
+        datetime.now(timezone.utc) - timedelta(minutes=_FREE_TIER_DELAY_MINS)
+        if not premium and _FREE_TIER_DELAY_MINS > 0
+        else None
+    )
+
+    with get_db() as db:
+        from sqlalchemy import select
+        rows = db.scalars(select(Signal).order_by(Signal.updated_at.desc())).all()
+        now = datetime.now(timezone.utc)
+        payloads = []
+        for s in rows:
+            updated = s.updated_at
+            if updated.tzinfo is None:
+                updated = updated.replace(tzinfo=timezone.utc)
+            delta = now - updated
+            if delta.total_seconds() > _MAX_SIGNAL_AGE_HOURS * 3600:
+                continue  # skip stale signals
+            if delay_cutoff and updated > delay_cutoff:
+                continue  # free tier: hide signals updated within the last hour
+            p = dict(s.payload)
+            p["timeAgo"] = format_time_ago(delta)
+            payloads.append(p)
+        payloads, global_acc = _enrich_with_outcomes(db, payloads)
+    if payloads:
+        return {"signals": payloads, "stats": _compute_stats(payloads, global_acc)}
+    return {"signals": [], "stats": {"today": 0, "thisWeek": 0, "accuracy": 0}}
+
+
+@app.get("/api/market")
+def get_market() -> dict:
+    return {"market": cache.get_or("market_status", MARKET_STATUS), "is_fallback": not cache.has("market_status")}
+
+
+@app.get("/api/price-history")
+def get_price_history(hours: int = Query(default=24, ge=1, le=168)) -> dict:
+    from sqlalchemy import select
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+    with get_db() as db:
+        rows = db.scalars(
+            select(PriceSnapshot)
+            .where(PriceSnapshot.recorded_at >= cutoff)
+            .order_by(PriceSnapshot.recorded_at.asc())
+        ).all()
+        history = [
+            {
+                "timestamp": r.recorded_at.replace(tzinfo=timezone.utc).isoformat(),
+                "btcPrice": r.btc_price,
+                "ethPrice": r.eth_price,
+            }
+            for r in rows
+        ]
+    return {"priceHistory": history}
+
+
+@app.get("/api/etf-history")
+def get_etf_history(hours: int = Query(default=168, ge=1, le=336)) -> dict:
+    from sqlalchemy import select
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+    with get_db() as db:
+        rows = db.scalars(
+            select(EtfSnapshot)
+            .where(EtfSnapshot.recorded_at >= cutoff)
+            .order_by(EtfSnapshot.recorded_at.asc())
+        ).all()
+        history = [
+            {
+                "timestamp": r.recorded_at.replace(tzinfo=timezone.utc).isoformat(),
+                "btcFlow": r.btc_flow,
+                "ethFlow": r.eth_flow,
+                "totalFlow": r.total_flow,
+            }
+            for r in rows
+        ]
+    return {"etfHistory": history}
+
+
+@app.get("/api/signal-outcomes")
+def get_signal_outcomes(hours: int = Query(default=48, ge=1, le=168)) -> dict:
+    from sqlalchemy import select
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+    with get_db() as db:
+        rows = db.scalars(
+            select(SignalOutcome)
+            .where(SignalOutcome.recorded_at >= cutoff)
+            .order_by(SignalOutcome.recorded_at.asc())
+        ).all()
+        outcomes = [
+            {
+                "detectorId": r.detector_id,
+                "signalType": r.signal_type,
+                "outcome": r.outcome or "PENDING",
+                "recordedAt": r.recorded_at.replace(tzinfo=timezone.utc).isoformat(),
+            }
+            for r in rows
+        ]
+    return {"signalOutcomes": outcomes}
+
+
+@app.get("/api/sector-flows")
+def get_sector_flows() -> dict:
+    return {"sectorFlows": cache.get_or("sector_flows", SECTOR_FLOWS)}
+
+
+@app.get("/api/etf-flows")
+def get_etf_flows() -> dict:
+    return {"etfFlows": cache.get_or("etf_flows", ETF_FLOWS)}
+
+
+@app.get("/api/macro")
+def get_macro() -> dict:
+    cached = cache.get("macro_status")
+    if isinstance(cached, dict) and "indicators" in cached:
+        return {
+            "macroStatus": cached.get("indicators") or MACRO_STATUS,
+            "riskEnvironment": cached.get("risk_environment", "neutral"),
+            "upcomingEvents": cached.get("upcoming_events", []),
+            "macroStatusDetail": cached.get("macro_status", {}),
+        }
+    return {"macroStatus": MACRO_STATUS}
+
+
+@app.get("/api/btc-treasuries")
+def get_btc_treasuries() -> dict:
+    return {"btcTreasuries": cache.get_or("btc_treasuries", BTC_TREASURIES)}
+
+
+@app.get("/api/vc-activity")
+def get_vc_activity() -> dict:
+    return {"vcActivity": cache.get_or("vc_activity", VC_ACTIVITY)}
+
+
+@app.get("/api/news")
+def get_news() -> dict:
+    cached = cache.get("news")
+    if isinstance(cached, dict):
+        return {"aiBriefing": cached.get("briefing", []), "newsHeadlines": cached.get("headlines", [])}
+    return {"aiBriefing": AI_BRIEFING, "newsHeadlines": NEWS_HEADLINES}
+
+
+@app.post("/api/agent/run")
+async def trigger_agent_run() -> dict:
+    """Manually trigger the agent loop (runs detectors + refreshes panel cache)."""
+    await run_agent()
+    return {"status": "ok"}
+
+
+@app.get("/api/subscription/status")
+def get_subscription_status(wallet: str = Query()) -> dict:
+    subscribed = is_subscribed(wallet)
+    expiry = get_expiry(wallet) if subscribed else None
+    return {"subscribed": subscribed, "expiry": expiry}
+
+
+@app.get("/api/stream")
+async def stream(wallet: str | None = Query(default=None)):
+    premium = is_subscribed(wallet) if wallet else False
+
+    async def gen():
+        if not premium:
+            yield f"event: access_denied\ndata: {json.dumps({'reason': 'subscription required'})}\n\n"
+            return
+
+        q = subscribe()
+        try:
+            yield f"data: {json.dumps(build_full_snapshot())}\n\n"
+            while True:
+                try:
+                    data = await asyncio.wait_for(q.get(), timeout=30)
+                    yield f"data: {json.dumps(data)}\n\n"
+                except asyncio.TimeoutError:
+                    yield ": heartbeat\n\n"
+        finally:
+            unsubscribe(q)
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

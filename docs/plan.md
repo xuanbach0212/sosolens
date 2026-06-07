@@ -2,7 +2,7 @@
 
 ## What We're Building
 
-**AI Signal Platform** — a one-screen, Bloomberg-terminal-style dashboard that watches SoSoValue's data 24/7 and surfaces actionable trading signals with plain-English explanations.
+**SoSoLens** — a one-screen, Bloomberg-terminal-style dashboard that watches SoSoValue's data 24/7 and surfaces actionable trading signals with plain-English explanations.
 
 Think: Bloomberg Terminal meets AI analyst. One screen, dense information, everything visible at once.
 
@@ -100,7 +100,7 @@ One-screen Terminal Dashboard (Next.js)
 
 ## Milestones
 
-- [x] Idea finalized — AI Signal Platform, one-screen terminal
+- [x] Idea finalized — SoSoLens, one-screen terminal
 - [ ] SoSoValue API integration layer working
 - [ ] AI agent generating test signals
 - [ ] Frontend terminal layout built

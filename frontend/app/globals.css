@@ -1,0 +1,153 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-terminal-bg: #15120e;
+  --color-terminal-panel: #1c1813;
+  --color-terminal-panel2: #221d17;
+  --color-terminal-border: #342d24;
+  --color-terminal-bordersoft: #2a241d;
+  --color-terminal-green: #5fce96;
+  --color-terminal-yellow: #e0a740;
+  --color-terminal-red: #e07060;
+  --color-terminal-text: #ece5da;
+  --color-terminal-muted: #8d8275;
+  --color-terminal-blue: #6ea8d6;
+}
+
+:root {
+  --fs-verdict: 21px;
+  --fw-verdict: 600;
+  --ls-verdict: 0;
+  --fs-section: 10px;
+  --fs-body: 12.5px;
+  --fs-data: 11px;
+  --fs-label: 9.5px;
+  --fs-tk: 12px;
+  --fs-feedtype: 13px;
+  --fs-sector: 13px;
+  --ls-label: 0.14em;
+  --ls-body: 0;
+  --lh-body: 1.62;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  background-color: #15120e;
+  color: #ece5da;
+  line-height: var(--lh-body);
+  letter-spacing: var(--ls-body);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: #1c1813;
+}
+::-webkit-scrollbar-thumb {
+  background: #342d24;
+}
+
+/* Ticker Tape (#69) — Bloomberg-style crawling crypto price row under TopBar */
+.tape {
+  display: flex;
+  align-items: stretch;
+  background: var(--color-terminal-panel);
+  border-bottom: 1px solid var(--color-terminal-border);
+  overflow: hidden;
+}
+.tapelabel {
+  display: flex;
+  align-items: center;
+  padding: 0 11px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--color-terminal-bg);
+  background: var(--color-terminal-green);
+  flex-shrink: 0;
+}
+.tapeview {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+.tapetrack {
+  display: inline-flex;
+  white-space: nowrap;
+  will-change: transform;
+  animation: crawl 90s linear infinite;
+}
+.tapeview:hover .tapetrack {
+  animation-play-state: paused;
+}
+@keyframes crawl {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.tapeitem {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 16px;
+  font-size: 11px;
+  border-right: 1px solid var(--color-terminal-bordersoft);
+}
+.tapesym {
+  color: var(--color-terminal-text);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tapetrack { animation: none; }
+}
+
+/* Live value flash (#70) — Bloomberg-style green/red pulse on price change */
+@keyframes flash-up {
+  0%   { background-color: rgba(95, 206, 150, 0.40); }
+  100% { background-color: transparent; }
+}
+@keyframes flash-down {
+  0%   { background-color: rgba(224, 112, 96, 0.40); }
+  100% { background-color: transparent; }
+}
+.flash-up   { animation: flash-up   700ms ease-out; border-radius: 2px; }
+.flash-down { animation: flash-down 700ms ease-out; border-radius: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  .flash-up, .flash-down { animation: none; }
+}
+
+/* Agent-run sync pulse (#71) — amber "breath" on intel panels when agent broadcasts */
+@keyframes sync-pulse {
+  0%   { background-color: transparent; }
+  12%  { background-color: rgba(224, 167, 64, 0.16); }
+  100% { background-color: transparent; }
+}
+.sync-pulse {
+  animation: sync-pulse 1500ms ease-out;
+  border-radius: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sync-pulse { animation: none; }
+}
+
+/* New-signal row pulse (#72) — blue arrival pulse on freshly-added signal rows */
+@keyframes new-signal-pulse {
+  0%   { background-color: rgba(110, 168, 214, 0.22); }
+  20%  { background-color: rgba(110, 168, 214, 0.22); }
+  100% { background-color: transparent; }
+}
+.new-signal-pulse {
+  animation: new-signal-pulse 2000ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .new-signal-pulse { animation: none; }
+}
