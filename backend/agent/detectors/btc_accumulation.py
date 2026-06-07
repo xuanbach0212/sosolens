@@ -77,7 +77,11 @@ class BtcAccumulationDetector:
             ],
             "topTokens": [
                 token_from_cache("BTC", net_weekly > 0),
-                token_from_cache("MSTR", bool(buying)),
+                token_from_cache("ETH", net_weekly > 0),
+                token_from_cache("SOL", net_weekly > 0),
+                token_from_cache("BNB", net_weekly > 0),
+                token_from_cache("AVAX", net_weekly > 0),
+                token_from_cache("XRP", net_weekly > 0),
             ],
             "pastSignals": [],
             "accuracy": 0,

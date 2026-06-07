@@ -19,6 +19,7 @@ services:
     env_file: backend/.env
     environment:
       - DATABASE_URL=postgresql+psycopg2://sosolens:sosolens@db:5432/sosolens
+      - FREE_TIER_DELAY_MINUTES=0
     depends_on:
       db:
         condition: service_healthy
@@ -26,9 +27,7 @@ services:
 
   tunnel:
     image: cloudflare/cloudflared:latest
-    command: tunnel --no-autoupdate run
-    environment:
-      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    command: tunnel --no-autoupdate --url http://backend:8000
     depends_on:
       - backend
     restart: unless-stopped
