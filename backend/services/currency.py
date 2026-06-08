@@ -143,37 +143,53 @@ def _sentiment(btc_change: float) -> tuple[str, bool]:
 
 
 async def fetch_btc_eth_prices(client: SoSoValueClient) -> tuple[dict, dict]:
-    """Return (btc_token, eth_token) dicts ready for topTokens, or placeholder dicts on failure."""
+    """Return (btc_token, eth_token) dicts ready for topTokens from CoinGecko, or placeholders."""
     placeholder = lambda sym: {"symbol": sym, "price": "—", "change": "—", "positive": True}
-    try:
-        btc_raw = (await client.get_currency_snapshot(BTC_ID)).get("data") or {}
-        eth_raw = (await client.get_currency_snapshot(ETH_ID)).get("data") or {}
-    except Exception as exc:
-        logger.warning("[currency] price fetch failed: %s", exc)
+    prices = await _fetch_btc_eth_from_coingecko()
+    if prices is None:
         return placeholder("BTC"), placeholder("ETH")
-
-    def _token(sym: str, raw: dict) -> dict:
-        price = float(raw.get("price") or 0)
-        change = float(raw.get("change_pct_24h") or 0)
-        if not price:
-            return {"symbol": sym, "price": "—", "change": "—", "positive": True}
-        return {
-            "symbol": sym,
-            "price": _fmt_price(price),
-            "change": _fmt_change(change),
-            "positive": change >= 0,
-        }
-
-    return _token("BTC", btc_raw), _token("ETH", eth_raw)
+    btc_price, btc_change, eth_price, eth_change = prices
+    return (
+        {"symbol": "BTC", "price": _fmt_price(btc_price), "change": _fmt_change(btc_change), "positive": btc_change >= 0},
+        {"symbol": "ETH", "price": _fmt_price(eth_price), "change": _fmt_change(eth_change), "positive": eth_change >= 0},
+    )
 
 
 async def fetch_btc_price_usd(client: SoSoValueClient) -> float:
-    """Return current BTC price as a raw float, or raise on failure."""
-    raw = (await client.get_currency_snapshot(BTC_ID)).get("data") or {}
-    price = float(raw.get("price") or 0)
-    if price <= 0:
-        raise ValueError("BTC price returned zero from API")
-    return price
+    """Return current BTC price as a raw float from CoinGecko, or raise on failure."""
+    prices = await _fetch_btc_eth_from_coingecko()
+    if prices is None or prices[0] <= 0:
+        raise ValueError("BTC price unavailable from CoinGecko")
+    return prices[0]
+
+
+async def _fetch_btc_eth_from_coingecko() -> tuple[float, float, float, float] | None:
+    """Return (btc_price, btc_change, eth_price, eth_change) from CoinGecko /simple/price.
+    Fast, free, no auth. Returns None on failure."""
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            r = await client.get(
+                "https://api.coingecko.com/api/v3/simple/price",
+                params={
+                    "ids": "bitcoin,ethereum",
+                    "vs_currencies": "usd",
+                    "include_24hr_change": "true",
+                },
+            )
+            r.raise_for_status()
+            d = r.json()
+        btc = d.get("bitcoin") or {}
+        eth = d.get("ethereum") or {}
+        btc_price = float(btc.get("usd") or 0)
+        eth_price = float(eth.get("usd") or 0)
+        if not btc_price or not eth_price:
+            return None
+        btc_change = float(btc.get("usd_24h_change") or 0) / 100
+        eth_change = float(eth.get("usd_24h_change") or 0) / 100
+        return btc_price, btc_change, eth_price, eth_change
+    except Exception as exc:
+        logger.warning("[currency] coingecko simple/price failed: %s", exc)
+        return None
 
 
 async def fetch_market_status(client: SoSoValueClient) -> dict:
@@ -185,37 +201,13 @@ async def fetch_market_status(client: SoSoValueClient) -> dict:
         base.setdefault("ethPriceRaw", 0.0)
         return base
 
-    try:
-        btc_raw = (await client.get_currency_snapshot(BTC_ID)).get("data") or {}
-        eth_raw = (await client.get_currency_snapshot(ETH_ID)).get("data") or {}
-    except Exception as exc:
-        logger.warning("[currency] snapshot failed: %s", exc)
+    prices = await _fetch_btc_eth_from_coingecko()
+    if prices is None:
+        logger.warning("[currency] market status: coingecko failed, returning fallback")
         return _fallback_status()
 
-    btc_price = float(btc_raw.get("price") or 0)
-    eth_price = float(eth_raw.get("price") or 0)
-    if not btc_price or not eth_price:
-        return _fallback_status()
-
-    btc_change = float(btc_raw.get("change_pct_24h") or 0)
-    eth_change = float(eth_raw.get("change_pct_24h") or 0)
-    btc_mcap = float(btc_raw.get("marketcap") or 0)
-    eth_mcap = float(eth_raw.get("marketcap") or 0)
-    btc_vol = float(btc_raw.get("turnover_24h") or 0)
-    eth_vol = float(eth_raw.get("turnover_24h") or 0)
-
-    total_mcap = btc_mcap + eth_mcap
-    total_vol = btc_vol + eth_vol
+    btc_price, btc_change, eth_price, eth_change = prices
     sentiment, positive = _sentiment(btc_change)
-
-    # Derive aggregate 24h mcap change from individual 24h changes (supply ~constant over 24h).
-    mcap_change_str = "—"
-    if btc_mcap and eth_mcap:
-        btc_mcap_y = btc_mcap / (1 + btc_change) if (1 + btc_change) != 0 else 0
-        eth_mcap_y = eth_mcap / (1 + eth_change) if (1 + eth_change) != 0 else 0
-        total_y = btc_mcap_y + eth_mcap_y
-        if total_y > 0:
-            mcap_change_str = _fmt_change((total_mcap - total_y) / total_y)
 
     fg = await fetch_fear_greed()
 
@@ -225,10 +217,10 @@ async def fetch_market_status(client: SoSoValueClient) -> dict:
         "btcChange": _fmt_change(btc_change),
         "ethPrice": _fmt_price(eth_price),
         "ethChange": _fmt_change(eth_change),
-        "mcap": _fmt_large(total_mcap) if total_mcap else base["mcap"],
-        "mcapChange": mcap_change_str,
-        "vol": _fmt_large(total_vol) if total_vol else base["vol"],
-        "volChange": "—",  # no 24h volume history available from the API
+        "mcap": base["mcap"],
+        "mcapChange": "—",
+        "vol": base["vol"],
+        "volChange": "—",
         "sentiment": sentiment,
         "sentimentPositive": positive,
         "btcPriceRaw": btc_price,
@@ -239,7 +231,7 @@ async def fetch_market_status(client: SoSoValueClient) -> dict:
         base["fearGreedLabel"] = fg[1]
 
     # Override mcap/vol with true market-wide totals from CoinGecko (cached
-    # hourly under "global_market"); fall back to the BTC+ETH-derived values.
+    # hourly under "global_market"); fall back to hardcoded placeholder.
     glob = cache.get("global_market")
     if isinstance(glob, dict):
         base["mcap"] = glob.get("mcap", base["mcap"])

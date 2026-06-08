@@ -20,6 +20,9 @@ services:
     environment:
       - DATABASE_URL=postgresql+psycopg2://sosolens:sosolens@db:5432/sosolens
       - FREE_TIER_DELAY_MINUTES=0
+      - CACHE_SNAPSHOT_PATH=/cache/cache_snapshot.json
+    volumes:
+      - cache_data:/cache
     depends_on:
       db:
         condition: service_healthy
@@ -34,3 +37,4 @@ services:
 
 volumes:
   pg_data:
+  cache_data:

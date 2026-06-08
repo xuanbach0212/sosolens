@@ -38,17 +38,27 @@ async def lifespan(app: FastAPI):
     if loaded:
         print(f"[cache] restored {loaded} keys from disk — panels visible immediately")
     scheduler = start_scheduler()
-    # Prioritize market cache so BTC/ETH show live within ~12s, then run full agent loop.
-    market_task = asyncio.create_task(_refresh_market_cache())
-    bootstrap_task = asyncio.create_task(run_agent())
+    # Only run bootstrap agent if DB has no recent signals — avoids hammering
+    # the SoSoValue API on rapid rebuilds. Hourly scheduler handles subsequent runs.
+    from backend.agent.models import Signal
+    from sqlalchemy import select
+    from datetime import datetime, timedelta, timezone
+    with get_db() as _db:
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=2)
+        recent = _db.execute(select(Signal).where(Signal.updated_at >= cutoff).limit(1)).first()
+    if recent:
+        print("[agent] recent signals found — skipping bootstrap, hourly scheduler will run next")
+        bootstrap_task = asyncio.create_task(asyncio.sleep(0))
+    else:
+        print("[agent] no recent signals — running bootstrap agent")
+        bootstrap_task = asyncio.create_task(run_agent())
     try:
         yield
     finally:
-        for t in (market_task, bootstrap_task):
-            if not t.done():
-                t.cancel()
-                with suppress(asyncio.CancelledError):
-                    await t
+        if not bootstrap_task.done():
+            bootstrap_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await bootstrap_task
         scheduler.shutdown()
 
 
@@ -192,7 +202,7 @@ def get_macro() -> dict:
             "upcomingEvents": cached.get("upcoming_events", []),
             "macroStatusDetail": cached.get("macro_status", {}),
         }
-    return {"macroStatus": MACRO_STATUS}
+    return {"macroStatus": MACRO_STATUS, "riskEnvironment": "neutral", "upcomingEvents": [], "macroStatusDetail": {}}
 
 
 @app.get("/api/btc-treasuries")
